@@ -1,7 +1,8 @@
 #include "process.h"
 
+using namespace std;
 // Constructor
-Process::Process(const std::string& pid_, int at, int bt, int prio)
+Process::Process(const string& pid_, int at, int bt, int prio)
   : pid(pid_), arrivalTime(at), burstTime(bt), priority(prio)
 {}
 
