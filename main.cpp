@@ -4,12 +4,26 @@
 #include "scheduler/SJF/sjf_scheduler.h"
 #include "scheduler/RoundRobin/rr_scheduler.h"
 #include "scheduler/Priority/priority_scheduler.h"
+#include "synchronizer/synchronizer_peterson.h"
 
 #include <iostream>
 #include <vector>
+#include <thread>
 #include <string>
 
 using namespace std;
+
+// --- synchronizer peterson ---
+int counter = 0;
+PetersonSynchronizer sync;
+
+void task(int id) {
+    for (int i = 0; i < 10000; ++i) {
+        sync.lock(id);
+        counter++;
+        sync.unlock(id);
+    }
+}
 
 int main() {
     try {
@@ -22,6 +36,18 @@ int main() {
                  << ", BT=" << p.burstTime
                  << ", PRIO=" << p.priority << "\n";
         }
+
+        // --- Prueba de PetersonSynchronizer ---
+        cout << "\n=== Probando PetersonSynchronizer ===\n";
+        counter = 0; 
+
+        thread t1(task, 0);
+        thread t2(task, 1);
+
+        t1.join();
+        t2.join();
+
+        cout << "Contador final (esperado = 20000): " << counter << "\n";
 
         // --- DummyScheduler ---
         DummyScheduler dummy;
