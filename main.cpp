@@ -3,6 +3,7 @@
 #include "tests/dummy_scheduler.h"
 #include "scheduler/SJF/sjf_scheduler.h"
 #include "scheduler/RoundRobin/rr_scheduler.h"
+#include "scheduler/Priority/priority_scheduler.h"
 
 #include <iostream>
 #include <vector>
@@ -54,6 +55,26 @@ int main() {
             if (!pid.empty())
                 cout << "t=" << t << " -> " << pid << "\n";
         }
+
+        // --- Priority Scheduler ---
+        PriorityScheduler priority;
+        for (const auto& p : procs)
+            priority.add_process(p);
+
+        cout << "\n=== Probando " << priority.get_name() << " ===\n";
+        int t = 0;
+        while (true) {
+            auto pid = priority.schedule_next(t);
+            if (!pid.empty())
+                cout << "t=" << t << " -> " << pid << "\n";
+
+            // Salimos si ya no hay procesos ejecutándose ni esperando
+            if (priority.get_pending_processes().empty() && pid.empty())
+                break;
+
+            ++t;
+        }
+        cout << "Average Waiting Time: " << priority.average_waiting_time() << "\n";
 
     } catch (const exception& ex) {
         cerr << "Error: " << ex.what() << "\n";
