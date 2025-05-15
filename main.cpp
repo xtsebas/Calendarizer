@@ -1,5 +1,3 @@
-// main.cpp
-
 #include "process/process.h"
 #include "utils/file_loader.h"
 #include "utils/metrics.h"
@@ -8,6 +6,7 @@
 #include "scheduler/RoundRobin/rr_scheduler.h"
 #include "scheduler/Priority/priority_scheduler.h"
 #include "synchronizer/synchronizer_peterson.h"
+#include "synchronizer/mutex_sync.h"
 
 #include <iostream>
 #include <vector>
@@ -47,6 +46,24 @@ int main() {
         thread t1(task, 0), t2(task, 1);
         t1.join();
         t2.join();
+        cout << "Contador final (esperado = 20000): " << counter << "\n";
+
+        // 2.1) Prueba de MutexSynchronizer
+        cout << "\n=== Probando MutexSynchronizer ===\n";
+        counter = 0;
+        MutexSynchronizer mtx_sync;
+
+        auto task_mutex = [&](int id) {
+            for (int i = 0; i < 10000; ++i) {
+                mtx_sync.lock(id);
+                ++counter;
+                mtx_sync.unlock(id);
+            }
+        };
+
+        thread m1(task_mutex, 0), m2(task_mutex, 1);
+        m1.join();
+        m2.join();
         cout << "Contador final (esperado = 20000): " << counter << "\n";
 
         // 3) DummyScheduler
