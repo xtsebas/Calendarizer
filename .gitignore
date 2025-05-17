@@ -19,6 +19,9 @@
 *.exe
 *.out
 *.app
+*.pro.user*
+*.qbs.user*
+*.pro.qtds*
 
 # Debug files
 *.dSYM/
