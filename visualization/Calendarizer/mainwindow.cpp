@@ -49,9 +49,19 @@ QWidget* MainWindow::createMainMenu() {
     connect(manualInputBtn, &QPushButton::clicked, this, &MainWindow::showManualInputModal);
     connect(startSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSimulationScreen);
 
+    algorithmSelector = new QComboBox;
+    algorithmSelector->addItem("FIFO");
+    algorithmSelector->addItem("SJF");
+    algorithmSelector->addItem("SRTF");
+    algorithmSelector->addItem("Round Robin");
+    algorithmSelector->addItem("Priority");
+
     layout->addWidget(new QLabel("Menú Principal"));
     layout->addWidget(loadFromFileBtn);
     layout->addWidget(manualInputBtn);
+    layout->addWidget(startSimulationBtn);
+    layout->addWidget(new QLabel("Selecciona algoritmo:"));
+    layout->addWidget(algorithmSelector);
     layout->addWidget(startSimulationBtn);
     layout->addWidget(new QLabel("Procesos cargados:"));
     layout->addWidget(processTable);
@@ -76,6 +86,8 @@ void MainWindow::loadProcessesFromFile() {
 
         QMessageBox::information(this, "Archivo cargado",
                                  "Archivo: " + filename + "\nProcesos cargados: " + QString::number(procs.size()));
+
+        loadedProcesses = procs;
     }
 }
 
@@ -134,6 +146,14 @@ void MainWindow::showManualInputModal() {
 }
 
 void MainWindow::goToSimulationScreen() {
+    if (loadedProcesses.empty()) {
+        QMessageBox::warning(this, "Error", "Primero debes cargar procesos.");
+        return;
+    }
+
+    QString selectedAlg = algorithmSelector->currentText();
+    QMessageBox::information(this, "Algoritmo elegido", "Ejecutando: " + selectedAlg);
+
     stackedWidget->setCurrentWidget(simulationWidget);
 }
 

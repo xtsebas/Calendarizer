@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include <QDialog>
 #include <QTableWidget>
+#include <QComboBox>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -25,6 +26,8 @@ private:
     QStackedWidget *stackedWidget;
     QWidget *mainMenuWidget;
     QWidget *simulationWidget;
+    QComboBox *algorithmSelector;
+    std::vector<Process> loadedProcesses;
 
     QWidget* createMainMenu();
     QWidget* createSimulationScreen();
