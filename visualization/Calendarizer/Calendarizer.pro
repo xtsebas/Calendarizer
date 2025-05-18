@@ -11,6 +11,7 @@ TEMPLATE = app
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+
     # Add other .cpp files here
 
 # Header files
@@ -26,7 +27,11 @@ FORMS += \
 # Include directories
 INCLUDEPATH += \
     . \
-    # Add other include paths if needed
+    ../../utils \
+    ../../process
+
+LIBS += -L$$OUT_PWD/../../utils/debug -lutils
+LIBS += -L$$OUT_PWD/../../process/debug -lprocess
 
 # Resource files (if any)
 RESOURCES += \
