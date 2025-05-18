@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-#include "process/process.h"
+#include "../process/process.h"
 
 // Recopila una lista de <pid, finishTime> en el map y
 // calcula WT = finishTime - arrivalTime - burstTime
