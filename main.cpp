@@ -7,6 +7,7 @@
 #include "scheduler/Priority/priority_scheduler.h"
 #include "synchronizer/synchronizer_peterson.h"
 #include "synchronizer/mutex_sync.h"
+#include "scheduler/FIFO/fifo_scheduler.h"
 
 #include <iostream>
 #include <vector>
@@ -19,7 +20,6 @@ using namespace std;
 // --- Peterson Synchronizer test ---
 int counter = 0;
 PetersonSynchronizer sync;
-
 void task(int id) {
     for (int i = 0; i < 10000; ++i) {
         sync.lock(id);
@@ -145,6 +145,30 @@ int main() {
         }
         cout << "Avg WT (Priority): " 
              << prio.average_waiting_time() << "\n";
+
+        // 7) FIFO Scheduler
+        FIFO_Scheduler fifo;
+        for (const auto& p : procs) fifo.add_process(p);
+
+        vector<pair<string,int>> finishFIFO;
+        cout << "\n=== Probando " << fifo.get_name() << " ===\n";
+        time = 0;
+        while (true) {
+            auto pid = fifo.schedule_next(time);
+            if (!pid.empty()) {
+                cout << "t=" << time << " -> " << pid << "\n";
+                auto pending = fifo.get_pending_processes();
+                if (none_of(pending.begin(), pending.end(),
+                            [&](const Process& pr){ return pr.pid == pid; }))
+                {
+                    finishFIFO.emplace_back(pid, time + 1);
+                }
+            }
+            if (fifo.get_pending_processes().empty()) break;
+            ++time;
+        }
+        cout << "Avg WT (FIFO): "
+            << averageWaitingTime(finishFIFO, procs) << "\n";
 
     } catch (const exception& ex) {
         cerr << "Error: " << ex.what() << "\n";
