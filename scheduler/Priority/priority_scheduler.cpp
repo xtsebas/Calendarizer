@@ -3,8 +3,10 @@
 
 PriorityScheduler::PriorityScheduler()
     : ready_queue(Scheduler::higher_priority),
-      remaining_time(0), current_time(0),
-      current_process({ "", 0, 0, 0 }) {}
+      waiting_times(),
+      current_process({ "", 0, 0, 0 }),
+      remaining_time(0),
+      current_time(0) {}
 
 void PriorityScheduler::add_process(const Process& process) {
     ready_queue.push(process);
