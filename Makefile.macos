@@ -1,0 +1,32 @@
+# Compiler and flags
+CXX       := g++
+CXXFLAGS  := -g -std=c++17 -arch arm64 -I.
+
+# Directories containing your .cpp sources (excluding main.cpp)
+SRCDIRS   := \
+    process \
+    utils \
+    scheduler \
+    scheduler/SJF \
+    scheduler/RoundRobin \
+    scheduler/FIFO \
+    scheduler/Priority \
+    synchronizer
+
+# Gather all .cpp files from SRCDIRS
+SRCS      := $(foreach d,$(SRCDIRS),$(wildcard $(d)/*.cpp))
+# Convert to .o targets
+OBJS      := $(SRCS:.cpp=.o)
+
+TARGET    := calendarizer
+
+all: $(TARGET)
+
+# Link step: compile all OBJS and directly compile+link main.cpp
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ main.cpp
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all clean
