@@ -5,6 +5,8 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QCheckBox>
+#include <QGroupBox>
 
 #include "file_loader.h"
 #include "process.h"
@@ -49,19 +51,28 @@ QWidget* MainWindow::createMainMenu() {
     connect(manualInputBtn, &QPushButton::clicked, this, &MainWindow::showManualInputModal);
     connect(startSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSimulationScreen);
 
-    algorithmSelector = new QComboBox;
-    algorithmSelector->addItem("FIFO");
-    algorithmSelector->addItem("SJF");
-    algorithmSelector->addItem("SRTF");
-    algorithmSelector->addItem("Round Robin");
-    algorithmSelector->addItem("Priority");
+    multiAlgorithmGroup = new QGroupBox("Selecciona algoritmos a comparar:");
+    QVBoxLayout *algLayout = new QVBoxLayout;
+
+    fifoCheck = new QCheckBox("FIFO");
+    sjfCheck = new QCheckBox("SJF");
+    srtfCheck = new QCheckBox("SRTF");
+    rrCheck = new QCheckBox("Round Robin");
+    priorityCheck = new QCheckBox("Priority");
+
+    algLayout->addWidget(fifoCheck);
+    algLayout->addWidget(sjfCheck);
+    algLayout->addWidget(srtfCheck);
+    algLayout->addWidget(rrCheck);
+    algLayout->addWidget(priorityCheck);
+
+    multiAlgorithmGroup->setLayout(algLayout);
+    layout->addWidget(multiAlgorithmGroup);
 
     layout->addWidget(new QLabel("Menú Principal"));
     layout->addWidget(loadFromFileBtn);
     layout->addWidget(manualInputBtn);
     layout->addWidget(startSimulationBtn);
-    layout->addWidget(new QLabel("Selecciona algoritmo:"));
-    layout->addWidget(algorithmSelector);
     layout->addWidget(startSimulationBtn);
     layout->addWidget(new QLabel("Procesos cargados:"));
     layout->addWidget(processTable);
@@ -151,8 +162,19 @@ void MainWindow::goToSimulationScreen() {
         return;
     }
 
-    QString selectedAlg = algorithmSelector->currentText();
-    QMessageBox::information(this, "Algoritmo elegido", "Ejecutando: " + selectedAlg);
+    QStringList selectedAlgs;
+    if (fifoCheck->isChecked()) selectedAlgs << "FIFO";
+    if (sjfCheck->isChecked()) selectedAlgs << "SJF";
+    if (srtfCheck->isChecked()) selectedAlgs << "SRTF";
+    if (rrCheck->isChecked()) selectedAlgs << "Round Robin";
+    if (priorityCheck->isChecked()) selectedAlgs << "Priority";
+
+    if (selectedAlgs.isEmpty()) {
+        QMessageBox::warning(this, "Error", "Debes seleccionar al menos un algoritmo.");
+        return;
+    }
+
+    QMessageBox::information(this, "Algoritmos elegidos", "Ejecutando: " + selectedAlgs.join(", "));
 
     stackedWidget->setCurrentWidget(simulationWidget);
 }

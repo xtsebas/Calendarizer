@@ -8,6 +8,8 @@
 #include <QDialog>
 #include <QTableWidget>
 #include <QComboBox>
+#include <QCheckBox>
+#include <QGroupBox>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -28,6 +30,12 @@ private:
     QWidget *simulationWidget;
     QComboBox *algorithmSelector;
     std::vector<Process> loadedProcesses;
+    QGroupBox *multiAlgorithmGroup;
+    QCheckBox *fifoCheck;
+    QCheckBox *sjfCheck;
+    QCheckBox *srtfCheck;
+    QCheckBox *rrCheck;
+    QCheckBox *priorityCheck;
 
     QWidget* createMainMenu();
     QWidget* createSimulationScreen();
