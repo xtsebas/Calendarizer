@@ -9,7 +9,18 @@
 #include <QGroupBox>
 
 #include "file_loader.h"
+#include "metrics.h"
 #include "process.h"
+#include "mutex_sync.h"
+#include "semaphore_sync.h"
+#include "synchronizer.h"
+#include "synchronizer_peterson.h"
+#include "FIFO/fifo_scheduler.h"
+#include "Priority/priority_scheduler.h"
+#include "RoundRobin/rr_scheduler.h"
+#include "SJF/sjf_scheduler.h"
+#include "SRTF/srtf_scheduler.h"
+#include "scheduler.h"
 
 #include <QTableWidget>
 #include <QHeaderView>

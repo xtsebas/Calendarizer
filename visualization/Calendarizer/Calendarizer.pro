@@ -28,10 +28,14 @@ FORMS += \
 INCLUDEPATH += \
     . \
     ../../utils \
-    ../../process
+    ../../process \
+    ../../synchronizer \
+    ../../scheduler
 
 LIBS += -L$$OUT_PWD/../../utils/debug -lutils
 LIBS += -L$$OUT_PWD/../../process/debug -lprocess
+LIBS += -L$$OUT_PWD/../../synchronizer/debug -lsynchronizer
+LIBS += -L$$OUT_PWD/../../scheduler/debug -lscheduler
 
 # Resource files (if any)
 RESOURCES += \

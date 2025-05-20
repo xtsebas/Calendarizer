@@ -1,7 +1,7 @@
 TEMPLATE    = lib
-CONFIG      += static c++17
+CONFIG      += staticlib c++17
 TARGET      = scheduler
-INCLUDEPATH += $$PWD ../process ../utils
+
 HEADERS     += scheduler.h \
                SJF/sjf_scheduler.h \
                RoundRobin/rr_scheduler.h \
