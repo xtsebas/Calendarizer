@@ -11,13 +11,17 @@ TEMPLATE = app
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    sync_canvas.cpp \
+    synclegend.cpp
 
     # Add other .cpp files here
 
 # Header files
 HEADERS += \
     mainwindow.h \
-    # Add other .h files here
+ \    # Add other .h files here
+    sync_canvas.h \
+    synclegend.h
 
 # UI form files
 FORMS += \
