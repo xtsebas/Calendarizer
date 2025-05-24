@@ -10,6 +10,11 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QGroupBox>
+#include <QLabel>
+#include "synchronizer.h"
+#include "sync_canvas.h"
+#include "synclegend.h"
+#include <QPlainTextEdit>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -23,6 +28,7 @@ private slots:
     void goToSimulationScreen();
     void goToMainMenu();
     void loadProcessesFromFile();
+    void goToSyncSimulationScreen();
 
 private:
     QStackedWidget *stackedWidget;
@@ -36,11 +42,34 @@ private:
     QCheckBox *srtfCheck;
     QCheckBox *rrCheck;
     QCheckBox *priorityCheck;
+    QWidget *syncSimulationWidget;
+
+
+    QComboBox *syncAlgorithmSelector;
+    QLabel *syncStatusLabel;
+    QTimer *syncTimer;
+    int syncTick;
+
+    SyncCanvas *syncCanvas;
+    Synchronizer *currentSync;
+
+    QTableWidget *syncProcessTable;
+    SyncLegend *syncLegend;
 
     QWidget* createMainMenu();
     QWidget* createSimulationScreen();
+    QWidget* createSyncSimulationScreen();
     void showModal(QWidget *content, const QString &title);
     QTableWidget *processTable;
+
+    bool startedLog[2];
+    bool finishedLog[2];
+
+    QPlainTextEdit *syncLog;
+    void logSyncMessage(const QString &message);
+    std::vector<Process> syncProcesses;
+    void startSyncSimulation();
+    void updateSyncSimulation();
 };
 
 #endif // MAINWINDOW_H

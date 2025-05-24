@@ -3,11 +3,16 @@
 
 #include "synchronizer.h"
 #include <atomic>
+#include <QString>
+#include <functional>
+
+extern std::function<void(QString)> syncLogger;
 
 class PetersonSynchronizer : public Synchronizer {
 private:
     std::atomic<bool> flag[2];
     std::atomic<int> turn;
+
 
 public:
     PetersonSynchronizer();
