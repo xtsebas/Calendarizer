@@ -14,6 +14,7 @@
 #include "synchronizer.h"
 #include "sync_canvas.h"
 #include "synclegend.h"
+#include <QPlainTextEdit>
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -61,6 +62,9 @@ private:
     void showModal(QWidget *content, const QString &title);
     QTableWidget *processTable;
 
+    QPlainTextEdit *syncLog;
+    void logSyncMessage(const QString &message);
+    std::vector<Process> syncProcesses;
     void startSyncSimulation();
     void updateSyncSimulation();
 };

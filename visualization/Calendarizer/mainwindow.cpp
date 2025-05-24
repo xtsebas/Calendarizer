@@ -29,6 +29,7 @@
 #include "sync_canvas.h"
 #include "synclegend.h"
 
+std::function<void(QString)> syncLogger = nullptr;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -122,6 +123,10 @@ QWidget* MainWindow::createSimulationScreen() {
     return widget;
 }
 
+void MainWindow::logSyncMessage(const QString &message) {
+    syncLog->appendPlainText(message);
+}
+
 QWidget* MainWindow::createSyncSimulationScreen() {
     QWidget *widget = new QWidget;
     QVBoxLayout *layout = new QVBoxLayout;
@@ -133,6 +138,11 @@ QWidget* MainWindow::createSyncSimulationScreen() {
     QPushButton *startBtn = new QPushButton("Iniciar simulación");
     QPushButton *backBtn = new QPushButton("Volver al menú");
     syncStatusLabel = new QLabel("Estado de la simulación");
+
+    syncLog = new QPlainTextEdit;
+    syncLog->setReadOnly(true);
+    syncLog->setMaximumHeight(150);
+    layout->addWidget(syncLog);
 
     syncCanvas = new SyncCanvas;
     layout->addWidget(label);
@@ -185,14 +195,36 @@ void MainWindow::startSyncSimulation() {
     else
         currentSync = new MutexSynchronizer();
 
-    // Reconfigurar canvas con procesos cargados
-    syncCanvas->setProcesses(loadedProcesses);
+    syncLogger = [this](const QString &msg) {
+        logSyncMessage(msg);
+    };
+
+    logSyncMessage("Simulación iniciada con el algoritmo: " + alg);
+
+    // Peterson solo funciona con 2 procesos
+    syncProcesses.clear();
+    if (alg == "Peterson") {
+        if (loadedProcesses.size() < 2) {
+            QMessageBox::warning(this, "Error", "Peterson requiere al menos 2 procesos.");
+            return;
+        }
+        syncProcesses = { loadedProcesses[0], loadedProcesses[1] };
+
+        if (loadedProcesses.size() > 2) {
+            QMessageBox::information(this, "Aviso", "Peterson solo utiliza los primeros 2 procesos.");
+        }
+    } else {
+        syncProcesses = loadedProcesses;
+    }
+
+    // Reconfigurar canvas y tabla
+    syncCanvas->setProcesses(syncProcesses);
     syncCanvas->setMaxTicks(50);
     syncCanvas->reset();
 
-    syncProcessTable->setRowCount(static_cast<int>(loadedProcesses.size()));
-    for (size_t i = 0; i < loadedProcesses.size(); ++i) {
-        const Process &p = loadedProcesses[i];
+    syncProcessTable->setRowCount(static_cast<int>(syncProcesses.size()));
+    for (size_t i = 0; i < syncProcesses.size(); ++i) {
+        const Process &p = syncProcesses[i];
         syncProcessTable->setItem(static_cast<int>(i), 0, new QTableWidgetItem(QString::fromStdString(p.pid)));
         syncProcessTable->setItem(static_cast<int>(i), 1, new QTableWidgetItem(QString::number(p.arrivalTime)));
         syncProcessTable->setItem(static_cast<int>(i), 2, new QTableWidgetItem(QString::number(p.burstTime)));
@@ -206,36 +238,56 @@ void MainWindow::startSyncSimulation() {
 }
 
 
-
 void MainWindow::updateSyncSimulation() {
+    static bool startedLog[2] = {false, false};  // Solo para Peterson (2 procesos)
+    static bool finishedLog[2] = {false, false};
+
     bool allDone = true;
     int selectedPid = -1;
     int highestPriority = INT_MAX;
 
-    // Elegir proceso con mayor prioridad
-    for (size_t i = 0; i < loadedProcesses.size(); ++i) {
-        const Process &p = loadedProcesses[i];
+    // Elegir proceso con mayor prioridad que aún no ha terminado
+    for (size_t i = 0; i < syncProcesses.size(); ++i) {
+        const Process &p = syncProcesses[i];
         if (p.burstTime > 0 && p.priority < highestPriority) {
             selectedPid = static_cast<int>(i);
             highestPriority = p.priority;
         }
     }
 
-    if (selectedPid == -1) {
-        syncTimer->stop();
-        syncStatusLabel->setText("Todos los procesos terminaron.");
-        return;
-    }
-
-    for (size_t i = 0; i < loadedProcesses.size(); ++i) {
-        Process &p = loadedProcesses[i];
+    // Ejecutar todos
+    for (size_t i = 0; i < syncProcesses.size(); ++i) {
+        Process &p = syncProcesses[i];
 
         if (p.burstTime <= 0) {
             syncCanvas->addStep(i, SyncStep::Finished);
-        } else if (i == selectedPid) {
+            continue;
+        }
+
+        if (static_cast<int>(i) == selectedPid) {
+            if (dynamic_cast<PetersonSynchronizer*>(currentSync)) {
+                int other = 1 - i;
+                if (!startedLog[i]) {
+                    logSyncMessage(QString("Proceso %1: flag[%1] = true, turn = %2 (Peterson)").arg(i).arg(other));
+                    logSyncMessage(QString("Proceso %1: esperando (Peterson)").arg(i));
+                }
+            }
+
             currentSync->lock(i);
+
+            if (!startedLog[i]) {
+                startedLog[i] = true;
+                logSyncMessage(QString("Proceso %1: entra a sección crítica tiempo %2 (Peterson)").arg(i).arg(syncTick));
+            }
+
             syncCanvas->addStep(i, SyncStep::Critical);
             p.burstTime--;
+
+            if (p.burstTime == 0 && !finishedLog[i]) {
+                finishedLog[i] = true;
+                logSyncMessage(QString("Proceso %1: sale de sección crítica tiempo %2 (Peterson)").arg(i).arg(syncTick + 1));
+            }
+
             currentSync->unlock(i);
         } else {
             syncCanvas->addStep(i, SyncStep::Waiting);
@@ -247,20 +299,17 @@ void MainWindow::updateSyncSimulation() {
     }
 
     syncTick++;
+
     if (allDone || syncTick >= 50) {
-        // Asegurar que todos terminen en verde visualmente
-        for (size_t i = 0; i < loadedProcesses.size(); ++i) {
+        for (size_t i = 0; i < syncProcesses.size(); ++i) {
             syncCanvas->addStep(i, SyncStep::Finished);
         }
 
+        logSyncMessage("SIMULACIÓN TERMINADA");
         syncTimer->stop();
         syncStatusLabel->setText("Simulación finalizada.");
     }
-
 }
-
-
-
 
 
 void MainWindow::showModal(QWidget *content, const QString &title) {

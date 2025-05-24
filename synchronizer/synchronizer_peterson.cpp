@@ -1,5 +1,5 @@
 #include "synchronizer_peterson.h"
-#include <thread> // para yield
+#include <thread>
 
 PetersonSynchronizer::PetersonSynchronizer() {
     flag[0] = false;
@@ -13,10 +13,12 @@ void PetersonSynchronizer::lock(int thread_id) {
     turn = other;
 
     while (flag[other] && turn == other) {
-        std::this_thread::yield(); // espera activa
+        std::this_thread::yield();
     }
+
 }
 
 void PetersonSynchronizer::unlock(int thread_id) {
     flag[thread_id] = false;
+
 }
