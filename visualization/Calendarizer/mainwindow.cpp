@@ -57,6 +57,8 @@ QWidget* MainWindow::createMainMenu() {
     syncTimer = nullptr;
     syncTick = 0;
     currentSync = nullptr;
+    startedLog[0] = startedLog[1] = false;
+    finishedLog[0] = finishedLog[1] = false;
 
     QPushButton *loadFromFileBtn = new QPushButton("Cargar desde archivo");
     QPushButton *manualInputBtn = new QPushButton("Ingreso manual");
@@ -175,6 +177,9 @@ QWidget* MainWindow::createSyncSimulationScreen() {
 
 
 void MainWindow::startSyncSimulation() {
+    startedLog[0] = startedLog[1] = false;
+    finishedLog[0] = finishedLog[1] = false;
+
     if (syncTimer) {
         syncTimer->stop();
         delete syncTimer;
@@ -195,29 +200,23 @@ void MainWindow::startSyncSimulation() {
     else
         currentSync = new MutexSynchronizer();
 
+    // Limpiar logs anteriores
+    syncLog->clear();
+
     syncLogger = [this](const QString &msg) {
         logSyncMessage(msg);
     };
 
     logSyncMessage("Simulación iniciada con el algoritmo: " + alg);
 
-    // Peterson solo funciona con 2 procesos
     syncProcesses.clear();
-    if (alg == "Peterson") {
-        if (loadedProcesses.size() < 2) {
-            QMessageBox::warning(this, "Error", "Peterson requiere al menos 2 procesos.");
-            return;
-        }
+    if (alg == "Peterson" || alg == "Mutex") {
+        if (loadedProcesses.size() < 2) return;
         syncProcesses = { loadedProcesses[0], loadedProcesses[1] };
-
-        if (loadedProcesses.size() > 2) {
-            QMessageBox::information(this, "Aviso", "Peterson solo utiliza los primeros 2 procesos.");
-        }
     } else {
         syncProcesses = loadedProcesses;
     }
 
-    // Reconfigurar canvas y tabla
     syncCanvas->setProcesses(syncProcesses);
     syncCanvas->setMaxTicks(50);
     syncCanvas->reset();
@@ -234,19 +233,22 @@ void MainWindow::startSyncSimulation() {
     syncTick = 0;
     syncTimer = new QTimer(this);
     connect(syncTimer, &QTimer::timeout, this, &MainWindow::updateSyncSimulation);
-    syncTimer->start(1000); // cada 1 segundo
+    syncTimer->start(1000);
 }
 
-
 void MainWindow::updateSyncSimulation() {
-    static bool startedLog[2] = {false, false};  // Solo para Peterson (2 procesos)
-    static bool finishedLog[2] = {false, false};
-
     bool allDone = true;
     int selectedPid = -1;
     int highestPriority = INT_MAX;
 
-    // Elegir proceso con mayor prioridad que aún no ha terminado
+    QString alg = syncAlgorithmSelector->currentText();
+
+    if (syncProcesses.size() > 2) {
+        syncTimer->stop();
+        syncStatusLabel->setText("Error: solo se permiten 2 procesos en este modo.");
+        return;
+    }
+
     for (size_t i = 0; i < syncProcesses.size(); ++i) {
         const Process &p = syncProcesses[i];
         if (p.burstTime > 0 && p.priority < highestPriority) {
@@ -255,7 +257,6 @@ void MainWindow::updateSyncSimulation() {
         }
     }
 
-    // Ejecutar todos
     for (size_t i = 0; i < syncProcesses.size(); ++i) {
         Process &p = syncProcesses[i];
 
@@ -265,11 +266,14 @@ void MainWindow::updateSyncSimulation() {
         }
 
         if (static_cast<int>(i) == selectedPid) {
-            if (dynamic_cast<PetersonSynchronizer*>(currentSync)) {
-                int other = 1 - i;
-                if (!startedLog[i]) {
-                    logSyncMessage(QString("Proceso %1: flag[%1] = true, turn = %2 (Peterson)").arg(i).arg(other));
-                    logSyncMessage(QString("Proceso %1: esperando (Peterson)").arg(i));
+            int other = 1 - i;
+
+            if (!startedLog[i]) {
+                if (alg == "Peterson") {
+                    logSyncMessage(QString("Proceso %1: flag[%1] = true, turn = %2 (%3)").arg(i).arg(other).arg(alg));
+                    logSyncMessage(QString("Proceso %1: esperando (%3)").arg(i).arg(alg));
+                } else if (alg == "Mutex") {
+                    logSyncMessage(QString("Proceso %1: esperando (%2)").arg(i).arg(alg));
                 }
             }
 
@@ -277,7 +281,12 @@ void MainWindow::updateSyncSimulation() {
 
             if (!startedLog[i]) {
                 startedLog[i] = true;
-                logSyncMessage(QString("Proceso %1: entra a sección crítica tiempo %2 (Peterson)").arg(i).arg(syncTick));
+
+                if (alg == "Mutex") {
+                    logSyncMessage(QString("Proceso %1: acquire() ejecutado (%2)").arg(i).arg(alg));
+                }
+
+                logSyncMessage(QString("Proceso %1: entra a sección crítica tiempo %2 (%3)").arg(i).arg(syncTick).arg(alg));
             }
 
             syncCanvas->addStep(i, SyncStep::Critical);
@@ -285,7 +294,11 @@ void MainWindow::updateSyncSimulation() {
 
             if (p.burstTime == 0 && !finishedLog[i]) {
                 finishedLog[i] = true;
-                logSyncMessage(QString("Proceso %1: sale de sección crítica tiempo %2 (Peterson)").arg(i).arg(syncTick + 1));
+                logSyncMessage(QString("Proceso %1: sale de sección crítica tiempo %2 (%3)").arg(i).arg(syncTick + 1).arg(alg));
+
+                if (alg == "Mutex") {
+                    logSyncMessage(QString("Proceso %1: release() ejecutado (%2)").arg(i).arg(alg));
+                }
             }
 
             currentSync->unlock(i);

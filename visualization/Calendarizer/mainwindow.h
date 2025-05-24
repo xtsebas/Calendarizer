@@ -62,6 +62,9 @@ private:
     void showModal(QWidget *content, const QString &title);
     QTableWidget *processTable;
 
+    bool startedLog[2];
+    bool finishedLog[2];
+
     QPlainTextEdit *syncLog;
     void logSyncMessage(const QString &message);
     std::vector<Process> syncProcesses;
