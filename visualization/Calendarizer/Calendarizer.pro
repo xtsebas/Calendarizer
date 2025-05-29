@@ -9,6 +9,7 @@ TEMPLATE = app
 
 # Source files
 SOURCES += \
+    gantt_canvas.cpp \
     main.cpp \
     mainwindow.cpp \
     sync_canvas.cpp \
@@ -18,6 +19,7 @@ SOURCES += \
 
 # Header files
 HEADERS += \
+    gantt_canvas.h \
     mainwindow.h \
  \    # Add other .h files here
     sync_canvas.h \

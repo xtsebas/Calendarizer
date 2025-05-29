@@ -22,6 +22,9 @@ public:
     // Procesos pendientes
     virtual std::vector<Process> get_pending_processes() const = 0;
 
+    virtual double average_waiting_time() const = 0;
+
+
 protected:
     // Preferencia: CPU-bound vs I/O-bound no se incluye aquí (solo info básica disponible en Process)
     static bool higher_priority(const Process& a, const Process& b);

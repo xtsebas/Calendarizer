@@ -11,6 +11,8 @@
 #include <QCheckBox>
 #include <QGroupBox>
 #include <QLabel>
+#include "Priority/priority_scheduler.h"
+#include "gantt_canvas.h"
 #include "synchronizer.h"
 #include "sync_canvas.h"
 #include "synclegend.h"
@@ -31,6 +33,18 @@ private slots:
     void goToSyncSimulationScreen();
 
 private:
+    std::vector<std::string> selectedAlgorithms;
+
+    QTimer *priorityTimer = nullptr;
+    PriorityScheduler *priorityScheduler = nullptr;
+    int priorityTick;
+    std::vector<Process> priorityReadyQueue;
+    QTableWidget *priorityProcessTable;
+    GanttCanvas *priorityCanvas;
+    QLabel *priorityStatusLabel;
+    void startPrioritySimulation();
+
+
     QStackedWidget *stackedWidget;
     QWidget *mainMenuWidget;
     QWidget *simulationWidget;
@@ -44,7 +58,7 @@ private:
     QCheckBox *priorityCheck;
     QWidget *syncSimulationWidget;
 
-
+    QPlainTextEdit *ganttOutput;
     QComboBox *syncAlgorithmSelector;
     QLabel *syncStatusLabel;
     QTimer *syncTimer;
