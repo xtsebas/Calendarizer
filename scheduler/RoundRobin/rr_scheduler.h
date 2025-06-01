@@ -14,6 +14,9 @@ public:
     std::string schedule_next(int current_time) override;
     std::string get_name() const override;
     std::vector<Process> get_pending_processes() const override;
+    double average_waiting_time() const override {
+        return 0.0;
+    }
 
 private:
     struct Job {

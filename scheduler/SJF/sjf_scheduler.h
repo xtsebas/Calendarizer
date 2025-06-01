@@ -21,6 +21,11 @@ public:
     // Procesos aún no terminados
     std::vector<Process> get_pending_processes() const override;
 
+    double average_waiting_time() const override {
+        // Stub por ahora. Devuelve 0.0.
+        return 0.0;
+    }
+
 private:
     struct Job {
         Process proc;

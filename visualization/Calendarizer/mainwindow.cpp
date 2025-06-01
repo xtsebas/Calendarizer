@@ -1,4 +1,6 @@
 #include "mainwindow.h"
+
+// — Qt —
 #include <QLabel>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -11,23 +13,26 @@
 #include <QPushButton>
 #include <QHeaderView>
 #include <QTimer>
+#include <QInputDialog>
+#include <QScrollArea>
+#include <QPlainTextEdit>
 
+// — Lógica de procesos y schedulers —
 #include "file_loader.h"
 #include "metrics.h"
 #include "process.h"
-#include "mutex_sync.h"
-#include "semaphore_sync.h"
-#include "synchronizer.h"
-#include "synchronizer_peterson.h"
-#include "FIFO/fifo_scheduler.h"
-#include "Priority/priority_scheduler.h"
-#include "RoundRobin/rr_scheduler.h"
-#include "SJF/sjf_scheduler.h"
-#include "SRTF/srtf_scheduler.h"
-#include "scheduler.h"
+#include "../scheduler/FIFO/fifo_scheduler.h"
+#include "../scheduler/SJF/sjf_scheduler.h"
+#include "../scheduler/SRTF/srtf_scheduler.h"
+#include "../scheduler/RoundRobin/rr_scheduler.h"
+#include "../scheduler/Priority/priority_scheduler.h"
+#include "../visualization/Calendarizer/gantt_canvas.h"
 
-#include "sync_canvas.h"
-#include "synclegend.h"
+// — Sincronización —
+#include "../synchronizer/synchronizer_peterson.h"
+#include "../synchronizer/mutex_sync.h"
+#include "../visualization/Calendarizer/sync_canvas.h"
+#include "../visualization/Calendarizer/synclegend.h"
 
 std::function<void(QString)> syncLogger = nullptr;
 
@@ -110,39 +115,49 @@ QWidget* MainWindow::createMainMenu() {
 
 QWidget* MainWindow::createSimulationScreen() {
     QWidget *widget = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout;
+    QVBoxLayout *mainLayout = new QVBoxLayout;
 
-    QLabel *label = new QLabel("Ejecutando simulación...");
+    // 1) Título
+    QLabel *title = new QLabel("Simulación de Scheduling");
+    title->setAlignment(Qt::AlignCenter);
+
+    // 2) ScrollArea para contener N GanttCanvas apilados
+    scrollArea = new QScrollArea;
+    scrollArea->setWidgetResizable(true);
+    ganttContainer = new QWidget;
+    ganttContainerLayout = new QVBoxLayout;
+    ganttContainer->setLayout(ganttContainerLayout);
+    scrollArea->setWidget(ganttContainer);
+
+    // 3) Tabla de procesos (solo para referencia)
+    processesTable = new QTableWidget;
+    processesTable->setColumnCount(4);
+    QStringList headers = { "PID", "Arrival Time", "Burst Time", "Priority" };
+    processesTable->setHorizontalHeaderLabels(headers);
+    processesTable->horizontalHeader()->setStretchLastSection(true);
+    processesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    // 4) Área de métricas (Avg Waiting Time de cada algoritmo)
+    metricsOutput = new QPlainTextEdit;
+    metricsOutput->setReadOnly(true);
+    metricsOutput->setPlaceholderText("Aquí aparecerán las métricas (Avg WT) de cada algoritmo…");
+
+    // 5) Botón “Volver al menú”
     QPushButton *backBtn = new QPushButton("Volver al menú");
-
     connect(backBtn, &QPushButton::clicked, this, &MainWindow::goToMainMenu);
 
-    ganttOutput = new QPlainTextEdit;
-    ganttOutput->setReadOnly(true);
+    // 6) Montar en layout principal
+    mainLayout->addWidget(title);
+    mainLayout->addWidget(new QLabel("Gantt de cada algoritmo:"));
+    mainLayout->addWidget(scrollArea, /*stretch=*/1);
+    mainLayout->addWidget(new QLabel("Procesos:"));
+    mainLayout->addWidget(processesTable);
+    mainLayout->addWidget(new QLabel("Métricas:"));
+    mainLayout->addWidget(metricsOutput);
+    mainLayout->addWidget(backBtn);
+    mainLayout->addStretch();
 
-    // NUEVO: Canvas visual
-    priorityCanvas = new GanttCanvas;
-
-    // NUEVO: Tabla de procesos
-    priorityProcessTable = new QTableWidget;
-    priorityProcessTable->setColumnCount(4);
-    QStringList headers = {"PID", "Arrival", "Burst", "Priority"};
-    priorityProcessTable->setHorizontalHeaderLabels(headers);
-    priorityProcessTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    priorityProcessTable->horizontalHeader()->setStretchLastSection(true);
-
-    // NUEVO: Label para mostrar estado
-    priorityStatusLabel = new QLabel;
-
-    layout->addWidget(priorityCanvas);
-    layout->addWidget(priorityProcessTable);
-    layout->addWidget(priorityStatusLabel);
-    layout->addWidget(ganttOutput);  // sigue incluido, útil para debug
-    layout->addWidget(label);
-    layout->addWidget(backBtn);
-    layout->addStretch();
-
-    widget->setLayout(layout);
+    widget->setLayout(mainLayout);
     return widget;
 }
 
@@ -409,11 +424,12 @@ void MainWindow::goToSimulationScreen() {
         return;
     }
 
+    // 1) Recopilar los algoritmos marcados
     selectedAlgorithms.clear();
-    if (fifoCheck->isChecked()) selectedAlgorithms.push_back("FIFO");
-    if (sjfCheck->isChecked()) selectedAlgorithms.push_back("SJF");
-    if (srtfCheck->isChecked()) selectedAlgorithms.push_back("SRTF");
-    if (rrCheck->isChecked()) selectedAlgorithms.push_back("Round Robin");
+    if (fifoCheck->isChecked())     selectedAlgorithms.push_back("FIFO");
+    if (sjfCheck->isChecked())      selectedAlgorithms.push_back("SJF");
+    if (srtfCheck->isChecked())     selectedAlgorithms.push_back("SRTF");
+    if (rrCheck->isChecked())       selectedAlgorithms.push_back("Round Robin");
     if (priorityCheck->isChecked()) selectedAlgorithms.push_back("Priority");
 
     if (selectedAlgorithms.empty()) {
@@ -421,95 +437,91 @@ void MainWindow::goToSimulationScreen() {
         return;
     }
 
-    // Mostrar mensaje informativo
+    // 2) Mostrar mensaje con la lista elegida
     QStringList algNames;
-    for (const std::string& alg : selectedAlgorithms) {
+    for (const std::string &alg : selectedAlgorithms)
         algNames << QString::fromStdString(alg);
-    }
-
     QMessageBox::information(this, "Algoritmos elegidos", "Ejecutando: " + algNames.join(", "));
+
+    // 3) Cambiar a la pantalla de simulación
     stackedWidget->setCurrentWidget(simulationWidget);
 
-    // Solo ejecutamos Gantt si es Priority único
-    if (selectedAlgorithms.size() == 1 && selectedAlgorithms[0] == "Priority") {
-        startPrioritySimulation();
-    } else {
-        ganttOutput->clear();
+    // 4) Limpiar canvases y métricas previas
+    metricsOutput->clear();
+    QLayoutItem *child;
+    while ((child = ganttContainerLayout->takeAt(0)) != nullptr) {
+        delete child->widget();
+        delete child;
     }
-}
+    runItems.clear();
+    simulationTick = 0;
 
+    // 5) Por cada algoritmo, crear RunItem (Scheduler + GanttCanvas)
+    for (const std::string &alg : selectedAlgorithms) {
+        Scheduler   *sched  = nullptr;
+        GanttCanvas *canvas = new GanttCanvas;
+        QString       name  = QString::fromStdString(alg);
 
-void MainWindow::startPrioritySimulation() {
-    qDebug() << "Iniciando simulación por prioridad...";
+        // 5.1) Instanciar el Scheduler concreto
+        if (alg == "FIFO") {
+            sched = new FIFO_Scheduler();
+        }
+        else if (alg == "SJF") {
+            sched = new SJF_Scheduler();
+        }
+        else if (alg == "SRTF") {
+            sched = new SRTF_Scheduler(); // <<-- Tu implementación de SRTF
+        }
+        else if (alg == "Round Robin") {
+            bool ok;
+            int quantum = QInputDialog::getInt(this, "Quantum de Round Robin",
+                                                "Ingresa el quantum:", 3, 1, 100, 1, &ok);
+            if (!ok) quantum = 3;
+            sched = new RR_Scheduler(quantum);
+            name += QString(" (q=%1)").arg(quantum);
+        }
+        else if (alg == "Priority") {
+            sched = new PriorityScheduler();
+        }
+        else {
+            continue;
+        }
 
-    if (priorityScheduler) {
-        delete priorityScheduler;
-        priorityScheduler = nullptr;
+        // 5.2) Agregar los procesos cargados al scheduler
+        for (const Process &p : loadedProcesses) {
+            sched->add_process(p);
+        }
+
+        // 5.3) Colocar el canvas dentro del scroll area
+        ganttContainerLayout->addWidget(canvas);
+
+        // 5.4) Construir y guardar el RunItem
+        RunItem item;
+        item.sched    = sched;
+        item.canvas   = canvas;
+        item.name     = name;
+        item.finished = false;
+        runItems.push_back(item);
     }
-    priorityScheduler = new PriorityScheduler();
 
-    // Ordenar procesos por prioridad (menor valor = mayor prioridad)
-    priorityReadyQueue = loadedProcesses;
-    std::sort(priorityReadyQueue.begin(), priorityReadyQueue.end(), [](const Process& a, const Process& b) {
-        return a.priority < b.priority;
-    });
-
-    // Agregar todos los procesos desde el inicio (ignora arrivalTime)
-    for (const auto& process : priorityReadyQueue) {
-        priorityScheduler->add_process(process);
-    }
-
-    priorityTick = 0;
-    priorityCanvas->reset();
-
-    // Llenar tabla de procesos
-    priorityProcessTable->setRowCount(static_cast<int>(loadedProcesses.size()));
-    for (size_t i = 0; i < loadedProcesses.size(); ++i) {
+    // 6) Llenar la tabla de procesos (referencia visual)
+    processesTable->setRowCount(static_cast<int>(loadedProcesses.size()));
+    for (int i = 0; i < loadedProcesses.size(); ++i) {
         const Process &p = loadedProcesses[i];
-        priorityProcessTable->setItem(static_cast<int>(i), 0, new QTableWidgetItem(QString::fromStdString(p.pid)));
-        priorityProcessTable->setItem(static_cast<int>(i), 1, new QTableWidgetItem(QString::number(p.arrivalTime)));
-        priorityProcessTable->setItem(static_cast<int>(i), 2, new QTableWidgetItem(QString::number(p.burstTime)));
-        priorityProcessTable->setItem(static_cast<int>(i), 3, new QTableWidgetItem(QString::number(p.priority)));
+        processesTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(p.pid)));
+        processesTable->setItem(i, 1, new QTableWidgetItem(QString::number(p.arrivalTime)));
+        processesTable->setItem(i, 2, new QTableWidgetItem(QString::number(p.burstTime)));
+        processesTable->setItem(i, 3, new QTableWidgetItem(QString::number(p.priority)));
     }
 
-    priorityStatusLabel->setText("Ejecutando...");
-
-    if (priorityTimer) {
-        priorityTimer->stop();
-        delete priorityTimer;
-        priorityTimer = nullptr;
+    // 7) Arrancar el timer global que llamará a updateAllSchedulers cada segundo
+    if (simulationTimer) {
+        simulationTimer->stop();
+        delete simulationTimer;
     }
-
-    priorityTimer = new QTimer(this);
-    connect(priorityTimer, &QTimer::timeout, this, [=]() mutable {
-        qDebug() << "Tick" << priorityTick;
-
-        std::string pid = priorityScheduler->schedule_next(priorityTick);
-        if (!pid.empty()) {
-            int index = -1;
-            for (size_t i = 0; i < loadedProcesses.size(); ++i) {
-                if (loadedProcesses[i].pid == pid) {
-                    index = static_cast<int>(i);
-                    break;
-                }
-            }
-            if (index != -1)
-                priorityCanvas->addStep(index);
-        } else {
-            priorityCanvas->addIdleStep();
-        }
-
-        priorityTick++;
-
-        if (priorityScheduler->get_pending_processes().empty()) {
-            priorityTimer->stop();
-            double wtavg = priorityScheduler->average_waiting_time();
-            priorityStatusLabel->setText(QString("Simulación finalizada. Tiempo de espera promedio: %1").arg(wtavg));
-            qDebug() << "Simulación terminada. WTavg:" << wtavg;
-        }
-    });
-
-    priorityTimer->start(1000);
+    simulationTimer = new QTimer(this);
+    connect(simulationTimer, &QTimer::timeout, this, &MainWindow::updateAllSchedulers);
+    simulationTimer->start(1000);
 }
 
 
@@ -519,4 +531,82 @@ void MainWindow::goToSyncSimulationScreen() {
 
 void MainWindow::goToMainMenu() {
     stackedWidget->setCurrentWidget(mainMenuWidget);
+}
+
+
+void MainWindow::updateAllSchedulers() {
+    // 1) Recorrer cada RunItem
+    for (auto &item : runItems) {
+        if (item.finished)
+            continue;
+
+        // 1.1) Ejecutar schedule_next en este tick
+        std::string pid = item.sched->schedule_next(simulationTick);
+
+        if (!pid.empty()) {
+            // 1.2) Pintar el paso en el canvas correspondiente
+            int indexProc = -1;
+            for (int i = 0; i < loadedProcesses.size(); ++i) {
+                if (loadedProcesses[i].pid == pid) {
+                    indexProc = i;
+                    break;
+                }
+            }
+            if (indexProc >= 0) {
+                item.canvas->addStep(indexProc);
+            }
+
+            // 1.3) Si este pid ya no está en pendientes, guardar finishTime
+            auto pendientes = item.sched->get_pending_processes();
+            bool siguePendiente = false;
+            for (const Process &p : pendientes) {
+                if (p.pid == pid) {
+                    siguePendiente = true;
+                    break;
+                }
+            }
+            if (!siguePendiente) {
+                item.finishLog.push_back({ pid, simulationTick + 1 });
+            }
+        } else {
+            // 1.4) CPU Idle → pintar IdleStep
+            item.canvas->addIdleStep();
+        }
+
+        // 1.5) Si este scheduler ya no tiene procesos pendientes, marcarlo terminado
+        if (item.sched->get_pending_processes().empty()) {
+            item.finished = true;
+
+            // 1.6) Calcular Avg WT y escribir en métricas
+            double avgWT = 0.0;
+            if (item.name.startsWith("Priority")) {
+                // Usar el método propio de PriorityScheduler
+                avgWT = static_cast<PriorityScheduler*>(item.sched)->average_waiting_time();
+            }
+            else {
+                // Para FIFO, SJF, RR y SRTF: usar la función global averageWaitingTime
+                avgWT = averageWaitingTime(item.finishLog, loadedProcesses);
+            }
+
+            metricsOutput->appendPlainText(
+                QString("%1 → Avg WT: %2").arg(item.name).arg(QString::number(avgWT, 'f', 15))
+            );
+        }
+    }
+
+    // 2) Verificar si TODOS terminaron
+    bool todos = true;
+    for (const auto &it : runItems) {
+        if (!it.finished) {
+            todos = false;
+            break;
+        }
+    }
+    if (todos) {
+        simulationTimer->stop();
+        metricsOutput->appendPlainText("\n=== SIMULACIÓN COMPLETADA ===");
+    }
+
+    // 3) Subir el tick global
+    simulationTick++;
 }
