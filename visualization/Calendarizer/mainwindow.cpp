@@ -507,6 +507,15 @@ void MainWindow::goToSimulationScreen() {
 
     // 5.3) Colocar el canvas dentro del scroll area
     ganttContainerLayout->addWidget(canvas);
+    {
+        QStringList pidList;
+        pidList.reserve(static_cast<int>(loadedProcesses.size()));
+        for (const Process &p: loadedProcesses) {
+            pidList.append(QString::fromStdString(p.pid));
+        }
+        canvas->setProcessLabels(pidList);
+    }
+    ganttContainerLayout->addWidget(canvas);
 
     // 5.4) Construir y guardar un *único* RunItem
     RunItem item;

@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QColor>
 #include <QRandomGenerator>
+#include <QStringList>
 
 GanttCanvas::GanttCanvas(QWidget *parent)
     : QWidget(parent)
@@ -39,6 +40,11 @@ QColor GanttCanvas::getColorForProcess(int index) {
     return processColors[index];
 }
 
+// — Implementación del nuevo setter —
+void GanttCanvas::setProcessLabels(const QStringList &labels) {
+    processLabels = labels;
+}
+
 void GanttCanvas::paintEvent(QPaintEvent *event) {
     Q_UNUSED(event);
     QPainter painter(this);
@@ -54,13 +60,15 @@ void GanttCanvas::paintEvent(QPaintEvent *event) {
         painter.setPen(Qt::black);
         painter.drawRect(x, 0, stepWidth, h);
 
-        // Etiqueta del proceso
-        if (index >= 0)
-            painter.drawText(x + 4, h / 2, QString("P%1").arg(index + 1));
-        else
+        // — Aquí cambiaremos la etiqueta:
+        //    Si index >= 0, usamos `processLabels[index]`; en Idle dibujamos “Idle”.
+        if (index >= 0 && index < processLabels.size()) {
+            painter.drawText(x + 4, h / 2, processLabels[index]);
+        } else {
             painter.drawText(x + 4, h / 2, "Idle");
+        }
 
-        // Línea de tiempo
+        // Línea de tiempo (número de ciclo)
         painter.drawText(x, h - 5, QString::number(i));
     }
 }
