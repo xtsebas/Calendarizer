@@ -33,6 +33,7 @@
 #include "../synchronizer/mutex_sync.h"
 #include "../visualization/Calendarizer/sync_canvas.h"
 #include "../visualization/Calendarizer/synclegend.h"
+#include "../synchronizer/semaphore_sync.h"
 
 std::function<void(QString)> syncLogger = nullptr;
 
@@ -172,7 +173,7 @@ QWidget* MainWindow::createSyncSimulationScreen() {
 
     QLabel *label = new QLabel("Simulación de sincronización");
     syncAlgorithmSelector = new QComboBox;
-    syncAlgorithmSelector->addItems({"Peterson", "Mutex"});
+    syncAlgorithmSelector->addItems({"Peterson", "Mutex", "Semáforo"});
 
     QPushButton *startBtn = new QPushButton("Iniciar simulación");
     QPushButton *backBtn = new QPushButton("Volver al menú");
@@ -232,28 +233,40 @@ void MainWindow::startSyncSimulation() {
     delete currentSync;
     currentSync = nullptr;
 
-    if (alg == "Peterson")
+    // 1) Instanciar el sincronizador correcto según la opción escogida
+    if (alg == "Peterson") {
         currentSync = new PetersonSynchronizer();
-    else
+    }
+    else if (alg == "Mutex") {
         currentSync = new MutexSynchronizer();
+    }
+    else if (alg == "Semáforo") {
+        // Semáforo binario (count = 1). Si quisieras otro conteo, cambia el parámetro.
+        currentSync = new SemaphoreSynchronizer(1);
+    }
+    else {
+        // Si llegara un texto inesperado, abortamos.
+        QMessageBox::critical(this, "Error", "Algoritmo de sincronización desconocido.");
+        return;
+    }
 
-    // Limpiar logs anteriores
+    // 2) Limpiar y preparar la interfaz
     syncLog->clear();
-
     syncLogger = [this](const QString &msg) {
         logSyncMessage(msg);
     };
-
     logSyncMessage("Simulación iniciada con el algoritmo: " + alg);
 
-    syncProcesses.clear();
-    if (alg == "Peterson" || alg == "Mutex") {
-        if (loadedProcesses.size() < 2) return;
-        syncProcesses = { loadedProcesses[0], loadedProcesses[1] };
-    } else {
-        syncProcesses = loadedProcesses;
+    // 3) Seleccionar los procesos a sincronizar
+    //    Tanto Peterson, Mutex y Semáforo requieren exactamente 2 procesos.
+    if (loadedProcesses.size() < 2) {
+        QMessageBox::warning(this, "Error", "Se necesitan al menos 2 procesos para esta simulación.");
+        return;
     }
+    // Solo tomamos los dos primeros procesos de loadedProcesses:
+    syncProcesses = { loadedProcesses[0], loadedProcesses[1] };
 
+    // 4) Configurar el canvas y la tabla
     syncCanvas->setProcesses(syncProcesses);
     syncCanvas->setMaxTicks(50);
     syncCanvas->reset();
@@ -267,6 +280,7 @@ void MainWindow::startSyncSimulation() {
         syncProcessTable->setItem(static_cast<int>(i), 3, new QTableWidgetItem(QString::number(p.priority)));
     }
 
+    // 5) Iniciar el timer que va a llamar a updateSyncSimulation cada segundo
     syncTick = 0;
     syncTimer = new QTimer(this);
     connect(syncTimer, &QTimer::timeout, this, &MainWindow::updateSyncSimulation);
@@ -424,7 +438,7 @@ void MainWindow::goToSimulationScreen() {
         return;
     }
 
-    // 1) Recopilar los algoritmos marcados
+    // 1) Recopilar EXACTAMENTE un algoritmo marcado
     selectedAlgorithms.clear();
     if (fifoCheck->isChecked())     selectedAlgorithms.push_back("FIFO");
     if (sjfCheck->isChecked())      selectedAlgorithms.push_back("SJF");
@@ -433,15 +447,17 @@ void MainWindow::goToSimulationScreen() {
     if (priorityCheck->isChecked()) selectedAlgorithms.push_back("Priority");
 
     if (selectedAlgorithms.empty()) {
-        QMessageBox::warning(this, "Error", "Debes seleccionar al menos un algoritmo.");
+        QMessageBox::warning(this, "Error", "Debes seleccionar un algoritmo.");
+        return;
+    }
+    if (selectedAlgorithms.size() > 1) {
+        QMessageBox::warning(this, "Error", "Selecciona únicamente un algoritmo.");
         return;
     }
 
-    // 2) Mostrar mensaje con la lista elegida
-    QStringList algNames;
-    for (const std::string &alg : selectedAlgorithms)
-        algNames << QString::fromStdString(alg);
-    QMessageBox::information(this, "Algoritmos elegidos", "Ejecutando: " + algNames.join(", "));
+    // 2) Informar cuál fue elegido
+    QString alg = QString::fromStdString(selectedAlgorithms[0]);
+    QMessageBox::information(this, "Algoritmo elegido", "Ejecutando: " + alg);
 
     // 3) Cambiar a la pantalla de simulación
     stackedWidget->setCurrentWidget(simulationWidget);
@@ -456,53 +472,52 @@ void MainWindow::goToSimulationScreen() {
     runItems.clear();
     simulationTick = 0;
 
-    // 5) Por cada algoritmo, crear RunItem (Scheduler + GanttCanvas)
-    for (const std::string &alg : selectedAlgorithms) {
-        Scheduler   *sched  = nullptr;
-        GanttCanvas *canvas = new GanttCanvas;
-        QString       name  = QString::fromStdString(alg);
+    // 5) Crear un único RunItem para el algoritmo seleccionado
+    QString chosenAlg = QString::fromStdString(selectedAlgorithms[0]);
+    Scheduler   *sched  = nullptr;
+    GanttCanvas *canvas = new GanttCanvas;
+    QString      name   = chosenAlg;
 
-        // 5.1) Instanciar el Scheduler concreto
-        if (alg == "FIFO") {
-            sched = new FIFO_Scheduler();
-        }
-        else if (alg == "SJF") {
-            sched = new SJF_Scheduler();
-        }
-        else if (alg == "SRTF") {
-            sched = new SRTF_Scheduler(); // <<-- Tu implementación de SRTF
-        }
-        else if (alg == "Round Robin") {
-            bool ok;
-            int quantum = QInputDialog::getInt(this, "Quantum de Round Robin",
-                                                "Ingresa el quantum:", 3, 1, 100, 1, &ok);
-            if (!ok) quantum = 3;
-            sched = new RR_Scheduler(quantum);
-            name += QString(" (q=%1)").arg(quantum);
-        }
-        else if (alg == "Priority") {
-            sched = new PriorityScheduler();
-        }
-        else {
-            continue;
-        }
-
-        // 5.2) Agregar los procesos cargados al scheduler
-        for (const Process &p : loadedProcesses) {
-            sched->add_process(p);
-        }
-
-        // 5.3) Colocar el canvas dentro del scroll area
-        ganttContainerLayout->addWidget(canvas);
-
-        // 5.4) Construir y guardar el RunItem
-        RunItem item;
-        item.sched    = sched;
-        item.canvas   = canvas;
-        item.name     = name;
-        item.finished = false;
-        runItems.push_back(item);
+    // 5.1) Instanciar el Scheduler según el algoritmo elegido
+    if (chosenAlg == "FIFO") {
+        sched = new FIFO_Scheduler();
     }
+    else if (chosenAlg == "SJF") {
+        sched = new SJF_Scheduler();
+    }
+    else if (chosenAlg == "SRTF") {
+        sched = new SRTF_Scheduler();
+    }
+    else if (chosenAlg == "Round Robin") {
+        bool ok;
+        int quantum = QInputDialog::getInt(this, "Quantum de Round Robin",
+                                           "Ingresa el quantum:", 3, 1, 100, 1, &ok);
+        if (!ok) quantum = 3;
+        sched = new RR_Scheduler(quantum);
+        name += QString(" (q=%1)").arg(quantum);
+    }
+    else if (chosenAlg == "Priority") {
+        sched = new PriorityScheduler();
+    }
+
+    // 5.2) Agregar los procesos cargados al scheduler
+    for (const Process &p : loadedProcesses) {
+        sched->add_process(p);
+    }
+
+    // 5.3) Colocar el canvas dentro del scroll area
+    ganttContainerLayout->addWidget(canvas);
+
+    // 5.4) Construir y guardar un *único* RunItem
+    RunItem item;
+    item.sched    = sched;
+    item.canvas   = canvas;
+    item.name     = name;
+    item.finished = false;
+
+    // Como ahora solo usamos uno, limpiamos cualquier RunItem previo y agregamos este:
+    runItems.clear();
+    runItems.push_back(item);
 
     // 6) Llenar la tabla de procesos (referencia visual)
     processesTable->setRowCount(static_cast<int>(loadedProcesses.size()));
@@ -577,20 +592,25 @@ void MainWindow::updateAllSchedulers() {
         if (item.sched->get_pending_processes().empty()) {
             item.finished = true;
 
-            // 1.6) Calcular Avg WT y escribir en métricas
-            double avgWT = 0.0;
-            if (item.name.startsWith("Priority")) {
-                // Usar el método propio de PriorityScheduler
-                avgWT = static_cast<PriorityScheduler*>(item.sched)->average_waiting_time();
-            }
-            else {
-                // Para FIFO, SJF, RR y SRTF: usar la función global averageWaitingTime
-                avgWT = averageWaitingTime(item.finishLog, loadedProcesses);
-            }
+            // Calcular Avg WT y Avg TT
+            double avgWT = averageWaitingTime(item.finishLog, loadedProcesses);
+            double avgTT = averageTurnaroundTime(item.finishLog, loadedProcesses);
 
+            // (Opcional) Calcular throughput
+            int totalTicks   = simulationTick;
+            int totalProcs   = static_cast<int>(item.finishLog.size());
+            double throughput = (totalTicks > 0)
+                                    ? (static_cast<double>(totalProcs) / totalTicks)
+                                    : 0.0;
+
+            // Mostrar todas las métricas juntas
             metricsOutput->appendPlainText(
-                QString("%1 → Avg WT: %2").arg(item.name).arg(QString::number(avgWT, 'f', 15))
-            );
+                QString("%1 → Avg WT: %2, Avg TT: %3, Throughput: %4 p/tick")
+                    .arg(item.name)
+                    .arg(QString::number(avgWT, 'f', 6))
+                    .arg(QString::number(avgTT, 'f', 6))
+                    .arg(QString::number(throughput, 'f', 6))
+                );
         }
     }
 
