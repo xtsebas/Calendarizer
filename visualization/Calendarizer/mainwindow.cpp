@@ -3,6 +3,7 @@
 
 // — Qt —
 #include <QLabel>
+#include <set>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QLineEdit>
@@ -248,7 +249,7 @@ QWidget* MainWindow::createSyncSimulationScreen() {
 
     QLabel *label = new QLabel("Simulación de sincronización");
     syncAlgorithmSelector = new QComboBox;
-    syncAlgorithmSelector->addItems({"Peterson", "Mutex", "Semáforo"});
+    syncAlgorithmSelector->addItems({"Mutex", "Semáforo"});
 
     QPushButton *startBtn = new QPushButton("Iniciar simulación");
     QPushButton *backBtn = new QPushButton("Volver al menú");
@@ -274,7 +275,7 @@ QWidget* MainWindow::createSyncSimulationScreen() {
     // Tabla de procesos
     syncProcessTable = new QTableWidget;
     syncProcessTable->setColumnCount(4);
-    QStringList headers = {"PID", "Arrival", "Burst", "Priority"};
+    QStringList headers = {"PID", "Accion", "Recurso", "Ciclo"};
     syncProcessTable->setHorizontalHeaderLabels(headers);
     syncProcessTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     syncProcessTable->horizontalHeader()->setStretchLastSection(true);
@@ -299,151 +300,162 @@ void MainWindow::startSyncSimulation() {
         syncTimer = nullptr;
     }
 
-    if (loadedProcesses.empty()) {
-        QMessageBox::critical(this, "Error", "No hay procesos cargados.");
+    if (loadedActions.empty()) {
+        QMessageBox::critical(this, "Error", "No hay acciones cargadas.");
         return;
     }
 
     QString alg = syncAlgorithmSelector->currentText();
-    delete currentSync;
-    currentSync = nullptr;
 
-    // 1) Instanciar el sincronizador correcto según la opción escogida
-    if (alg == "Peterson") {
-        currentSync = new PetersonSynchronizer();
+    if (currentSync) {
+        delete currentSync;
+        currentSync = nullptr;
     }
-    else if (alg == "Mutex") {
-        currentSync = new MutexSynchronizer();
-    }
-    else if (alg == "Semáforo") {
-        // Semáforo binario (count = 1). Si quisieras otro conteo, cambia el parámetro.
-        currentSync = new SemaphoreSynchronizer(1);
-    }
-    else {
-        // Si llegara un texto inesperado, abortamos.
-        QMessageBox::critical(this, "Error", "Algoritmo de sincronización desconocido.");
+
+    try {
+        if (alg == "Peterson") currentSync = new PetersonSynchronizer();
+        else if (alg == "Mutex") currentSync = new MutexSynchronizer();
+        else if (alg == "Semáforo") currentSync = new SemaphoreSynchronizer(1);
+        else {
+            QMessageBox::critical(this, "Error", "Algoritmo desconocido.");
+            return;
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Error", QString("Error al crear sincronizador: %1").arg(e.what()));
         return;
     }
 
-    // 2) Limpiar y preparar la interfaz
     syncLog->clear();
-    syncLogger = [this](const QString &msg) {
-        logSyncMessage(msg);
-    };
+    syncLogger = [this](const QString &msg) { logSyncMessage(msg); };
     logSyncMessage("Simulación iniciada con el algoritmo: " + alg);
 
-    // 3) Seleccionar los procesos a sincronizar
-    //    Tanto Peterson, Mutex y Semáforo requieren exactamente 2 procesos.
-    if (loadedProcesses.size() < 2) {
-        QMessageBox::warning(this, "Error", "Se necesitan al menos 2 procesos para esta simulación.");
+    // Procesos únicos desde loadedActions
+    syncProcesses.clear();
+    std::set<std::string> seen;
+    for (const auto& action : loadedActions) {
+        if (seen.insert(action.pid).second) {
+            syncProcesses.emplace_back(action.pid, 0, 0, 0);
+        }
+    }
+
+    if (syncProcesses.empty()) {
+        QMessageBox::warning(this, "Error", "No se encontraron procesos válidos.");
         return;
     }
-    // Solo tomamos los dos primeros procesos de loadedProcesses:
-    syncProcesses = { loadedProcesses[0], loadedProcesses[1] };
 
-    // 4) Configurar el canvas y la tabla
     syncCanvas->setProcesses(syncProcesses);
     syncCanvas->setMaxTicks(50);
     syncCanvas->reset();
 
-    syncProcessTable->setRowCount(static_cast<int>(syncProcesses.size()));
-    for (size_t i = 0; i < syncProcesses.size(); ++i) {
-        const Process &p = syncProcesses[i];
-        syncProcessTable->setItem(static_cast<int>(i), 0, new QTableWidgetItem(QString::fromStdString(p.pid)));
-        syncProcessTable->setItem(static_cast<int>(i), 1, new QTableWidgetItem(QString::number(p.arrivalTime)));
-        syncProcessTable->setItem(static_cast<int>(i), 2, new QTableWidgetItem(QString::number(p.burstTime)));
-        syncProcessTable->setItem(static_cast<int>(i), 3, new QTableWidgetItem(QString::number(p.priority)));
+    syncProcessTable->setRowCount(static_cast<int>(loadedActions.size()));
+    for (size_t i = 0; i < loadedActions.size(); ++i) {
+        const auto& a = loadedActions[i];
+        syncProcessTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(a.pid)));
+        syncProcessTable->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(a.type)));
+        syncProcessTable->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(a.resource)));
+        syncProcessTable->setItem(i, 3, new QTableWidgetItem(QString::number(a.cycle)));
     }
 
-    // 5) Iniciar el timer que va a llamar a updateSyncSimulation cada segundo
     syncTick = 0;
     syncTimer = new QTimer(this);
     connect(syncTimer, &QTimer::timeout, this, &MainWindow::updateSyncSimulation);
     syncTimer->start(1000);
 }
 
+
+
+struct ActionState {
+    FileLoader::Action action;
+    int step = 0;  // 0=Waiting, 1=Acquire, 2=Critical, 3=Release, 4=Done
+    int index;     // index en canvas
+};
+
 void MainWindow::updateSyncSimulation() {
-    bool allDone = true;
-    int selectedPid = -1;
-    int highestPriority = INT_MAX;
+    static std::vector<ActionState> activeActions;
+    static std::map<std::string, int> pidToIndex;
 
-    QString alg = syncAlgorithmSelector->currentText();
-
-    if (syncProcesses.size() > 2) {
+    if (!currentSync) {
+        logSyncMessage("Error: Sincronizador no inicializado");
         syncTimer->stop();
-        syncStatusLabel->setText("Error: solo se permiten 2 procesos en este modo.");
         return;
     }
 
-    for (size_t i = 0; i < syncProcesses.size(); ++i) {
-        const Process &p = syncProcesses[i];
-        if (p.burstTime > 0 && p.priority < highestPriority) {
-            selectedPid = static_cast<int>(i);
-            highestPriority = p.priority;
+    if (syncTick == 0) {
+        activeActions.clear();
+        pidToIndex.clear();
+
+        for (size_t i = 0; i < syncProcesses.size(); ++i)
+            pidToIndex[syncProcesses[i].pid] = static_cast<int>(i);
+
+        for (const auto& a : loadedActions) {
+            if (pidToIndex.count(a.pid)) {
+                activeActions.push_back(ActionState{ a, 0, pidToIndex[a.pid] });
+            }
         }
+
+        qDebug() << "[INIT] Acciones totales:" << activeActions.size();
     }
 
-    for (size_t i = 0; i < syncProcesses.size(); ++i) {
-        Process &p = syncProcesses[i];
+    qDebug() << "[TICK]" << syncTick;
 
-        if (p.burstTime <= 0) {
-            syncCanvas->addStep(i, SyncStep::Finished);
+    bool allDone = true;
+
+    for (auto& state : activeActions) {
+        if (syncTick < state.action.cycle) {
+            allDone = false;
             continue;
         }
 
-        if (static_cast<int>(i) == selectedPid) {
-            int other = 1 - i;
+        switch (state.step) {
+            case 0:
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting, state.action.type);
+                state.step = 1;
+                allDone = false;
+                break;
 
-            if (!startedLog[i]) {
-                if (alg == "Peterson") {
-                    logSyncMessage(QString("Proceso %1: flag[%1] = true, turn = %2 (%3)").arg(i).arg(other).arg(alg));
-                    logSyncMessage(QString("Proceso %1: esperando (%3)").arg(i).arg(alg));
-                } else if (alg == "Mutex") {
-                    logSyncMessage(QString("Proceso %1: esperando (%2)").arg(i).arg(alg));
+            case 1:
+                if (currentSync->try_lock(state.index)) {
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire, state.action.type);
+                    state.step = 2;
+                } else {
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting, state.action.type);
                 }
-            }
+                allDone = false;
+                break;
 
-            currentSync->lock(i);
+            case 2:
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Critical, state.action.type);
+                state.step = 3;
+                allDone = false;
+                break;
 
-            if (!startedLog[i]) {
-                startedLog[i] = true;
+            case 3:
+                currentSync->unlock(state.index);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Release, state.action.type);
+                state.step = 4;
+                allDone = false;
+                break;
 
-                if (alg == "Mutex") {
-                    logSyncMessage(QString("Proceso %1: acquire() ejecutado (%2)").arg(i).arg(alg));
-                }
+            case 4:
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Finished, state.action.type);
+                state.step = 5;
+                break;
 
-                logSyncMessage(QString("Proceso %1: entra a sección crítica tiempo %2 (%3)").arg(i).arg(syncTick).arg(alg));
-            }
-
-            syncCanvas->addStep(i, SyncStep::Critical);
-            p.burstTime--;
-
-            if (p.burstTime == 0 && !finishedLog[i]) {
-                finishedLog[i] = true;
-                logSyncMessage(QString("Proceso %1: sale de sección crítica tiempo %2 (%3)").arg(i).arg(syncTick + 1).arg(alg));
-
-                if (alg == "Mutex") {
-                    logSyncMessage(QString("Proceso %1: release() ejecutado (%2)").arg(i).arg(alg));
-                }
-            }
-
-            currentSync->unlock(i);
-        } else {
-            syncCanvas->addStep(i, SyncStep::Waiting);
+            case 5:
+                // Ya terminado
+                break;
         }
 
-        if (p.burstTime > 0) {
+        if (state.step != 5) {
             allDone = false;
         }
     }
 
     syncTick++;
 
-    if (allDone || syncTick >= 50) {
-        for (size_t i = 0; i < syncProcesses.size(); ++i) {
-            syncCanvas->addStep(i, SyncStep::Finished);
-        }
-
+    if (allDone) {
+        for (size_t i = 0; i < syncProcesses.size(); ++i)
+            syncCanvas->addStep(static_cast<int>(i), syncTick, SyncStep::Finished);
         logSyncMessage("SIMULACIÓN TERMINADA");
         syncTimer->stop();
         syncStatusLabel->setText("Simulación finalizada.");
@@ -738,6 +750,14 @@ void MainWindow::goToSimulationScreen() {
 }
 
 void MainWindow::goToSyncSimulationScreen() {
+    if (loadedActions.empty()) {
+        QMessageBox::warning(this, "Error", "No se han cargado acciones.");
+        return;
+    }
+    syncCanvas->reset();
+    syncTick = 0;
+    startedLog[0] = startedLog[1] = false;
+    finishedLog[0] = finishedLog[1] = false;
     stackedWidget->setCurrentWidget(syncSimulationWidget);
 }
 

@@ -15,6 +15,8 @@ private:
 public:
     void lock(int thread_id) override;
     void unlock(int thread_id) override;
+    bool try_lock(int thread_id) override;
+
 };
 
 #endif

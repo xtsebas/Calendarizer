@@ -15,7 +15,12 @@ void SyncLegend::paintEvent(QPaintEvent *) {
     struct { QColor color; QString label; } items[] = {
         { Qt::red, "→ Critical section" },
         { Qt::yellow, "→ Waiting" },
-        { Qt::green, "→ Done" }
+        { Qt::green, "→ Done" },
+        { QColor(100, 149, 237), "→ Acquire" },
+        { QColor(128, 0, 128), "→ Release" },
+        { QColor(255, 100, 100), "→ Critical READ" },
+        { QColor(200, 0, 0), "→ Critical WRITE" },
+
     };
 
     for (auto &item : items) {
