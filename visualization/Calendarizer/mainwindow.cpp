@@ -52,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
     stackedWidget->addWidget(syncSimulationWidget);
     stackedWidget->setCurrentWidget(mainMenuWidget);
 
+
     setCentralWidget(stackedWidget);
     setWindowTitle("Calendarizador");
     resize(600, 400);
@@ -71,6 +72,9 @@ QWidget* MainWindow::createMainMenu() {
     QPushButton *loadFromFileBtn = new QPushButton("Cargar procesos desde archivo");
     QPushButton *loadResourcesBtn = new QPushButton("Cargar recursos desde archivo");
     QPushButton *loadActionsBtn = new QPushButton("Cargar acciones desde archivo");
+    auto *clearProcsBtn     = new QPushButton("Limpiar procesos");
+    auto *clearResourcesBtn = new QPushButton("Limpiar recursos");
+    auto *clearActionsBtn   = new QPushButton("Limpiar acciones");
     QPushButton *manualInputBtn = new QPushButton("Ingreso manual");
     QPushButton *startSimulationBtn = new QPushButton("Iniciar simulación");
     QPushButton *syncSimulationBtn = new QPushButton("Simulación de sincronización");
@@ -100,14 +104,19 @@ QWidget* MainWindow::createMainMenu() {
     connect(manualInputBtn, &QPushButton::clicked, this, &MainWindow::showManualInputModal);
     connect(startSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSimulationScreen);
     connect(syncSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSyncSimulationScreen);
+    connect(clearProcsBtn,     &QPushButton::clicked, this, &MainWindow::clearProcesses);
+    connect(clearResourcesBtn, &QPushButton::clicked, this, &MainWindow::clearResources);
+    connect(clearActionsBtn,   &QPushButton::clicked, this, &MainWindow::clearActions);
 
+
+    // 1) Grupo de selección de algoritmos
     multiAlgorithmGroup = new QGroupBox("Selecciona algoritmos a comparar:");
     QVBoxLayout *algLayout = new QVBoxLayout;
 
-    fifoCheck = new QCheckBox("FIFO");
-    sjfCheck = new QCheckBox("SJF");
-    srtfCheck = new QCheckBox("SRTF");
-    rrCheck = new QCheckBox("Round Robin");
+    fifoCheck     = new QCheckBox("FIFO");
+    sjfCheck      = new QCheckBox("SJF");
+    srtfCheck     = new QCheckBox("SRTF");
+    rrCheck       = new QCheckBox("Round Robin");
     priorityCheck = new QCheckBox("Priority");
 
     algLayout->addWidget(fifoCheck);
@@ -115,9 +124,20 @@ QWidget* MainWindow::createMainMenu() {
     algLayout->addWidget(srtfCheck);
     algLayout->addWidget(rrCheck);
     algLayout->addWidget(priorityCheck);
-
     multiAlgorithmGroup->setLayout(algLayout);
-    layout->addWidget(multiAlgorithmGroup);
+
+    // 2) Layout horizontal que contiene el grupo de algoritmos + botones "Limpiar"
+    QHBoxLayout *algAndClearLayout = new QHBoxLayout;
+    algAndClearLayout->addWidget(multiAlgorithmGroup);
+
+    QVBoxLayout *clearBtnsLayout = new QVBoxLayout;
+    clearBtnsLayout->addWidget(clearProcsBtn);
+    clearBtnsLayout->addWidget(clearResourcesBtn);
+    clearBtnsLayout->addWidget(clearActionsBtn);
+    clearBtnsLayout->addStretch(); // Empuja los botones hacia arriba
+
+    algAndClearLayout->addLayout(clearBtnsLayout);
+    layout->addLayout(algAndClearLayout);
 
     layout->addWidget(new QLabel("Menú Principal"));
     QHBoxLayout *fileButtonsLayout = new QHBoxLayout;
@@ -159,6 +179,20 @@ void MainWindow::loadResourcesFromFile() {
     }
 }
 
+void MainWindow::clearProcesses() {
+    loadedProcesses.clear();
+    processTable->setRowCount(0);
+}
+
+void MainWindow::clearResources() {
+    loadedResources.clear();
+    resourceTable->setRowCount(0);
+}
+
+void MainWindow::clearActions() {
+    loadedActions.clear();
+    actionTable->setRowCount(0);
+}
 
 void MainWindow::loadActionsFromFile() {
     QString filename = QFileDialog::getOpenFileName(this, "Seleccionar archivo de acciones");

@@ -52,6 +52,9 @@ private slots:
     void loadResourcesFromFile();
     void loadActionsFromFile();
     void goToSyncSimulationScreen();
+    void clearProcesses();
+    void clearResources();
+    void clearActions();
 
     // Simulación scheduling
     void updateAllSchedulers();
