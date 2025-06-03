@@ -15,6 +15,7 @@
 
 
 #include "process.h"
+#include "file_loader.h"
 #include "../scheduler/scheduler.h"
 #include "../scheduler/FIFO/fifo_scheduler.h"
 #include "../scheduler/SJF/sjf_scheduler.h"
@@ -48,6 +49,8 @@ private slots:
     void goToSimulationScreen();
     void goToMainMenu();
     void loadProcessesFromFile();
+    void loadResourcesFromFile();
+    void loadActionsFromFile();
     void goToSyncSimulationScreen();
 
     // Simulación scheduling
@@ -60,11 +63,15 @@ private slots:
 private:
     // ---------- Datos generales ----------
     std::vector<Process>          loadedProcesses;
+    std::vector<FileLoader::Resource> loadedResources;
+    std::vector<FileLoader::Action> loadedActions;
     std::vector<std::string>      selectedAlgorithms;
 
     // ---------- Menú Principal ----------
     QWidget                      *mainMenuWidget       = nullptr;
     QTableWidget                 *processTable         = nullptr;
+    QTableWidget                 *resourceTable        = nullptr;
+    QTableWidget                 *actionTable          = nullptr;
     QGroupBox                    *multiAlgorithmGroup  = nullptr;
     QCheckBox                    *fifoCheck            = nullptr;
     QCheckBox                    *sjfCheck             = nullptr;

@@ -67,7 +67,9 @@ QWidget* MainWindow::createMainMenu() {
     startedLog[0] = startedLog[1] = false;
     finishedLog[0] = finishedLog[1] = false;
 
-    QPushButton *loadFromFileBtn = new QPushButton("Cargar desde archivo");
+    QPushButton *loadFromFileBtn = new QPushButton("Cargar procesos desde archivo");
+    QPushButton *loadResourcesBtn = new QPushButton("Cargar recursos desde archivo");
+    QPushButton *loadActionsBtn = new QPushButton("Cargar acciones desde archivo");
     QPushButton *manualInputBtn = new QPushButton("Ingreso manual");
     QPushButton *startSimulationBtn = new QPushButton("Iniciar simulación");
     QPushButton *syncSimulationBtn = new QPushButton("Simulación de sincronización");
@@ -79,7 +81,21 @@ QWidget* MainWindow::createMainMenu() {
     processTable->horizontalHeader()->setStretchLastSection(true);
     processTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
+    resourceTable = new QTableWidget;
+    resourceTable->setColumnCount(2);
+    resourceTable->setHorizontalHeaderLabels({"Nombre", "Cantidad"});
+    resourceTable->horizontalHeader()->setStretchLastSection(true);
+    resourceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    actionTable = new QTableWidget;
+    actionTable->setColumnCount(4);
+    actionTable->setHorizontalHeaderLabels({"PID", "Acción", "Recurso", "Ciclo"});
+    actionTable->horizontalHeader()->setStretchLastSection(true);
+    actionTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
     connect(loadFromFileBtn, &QPushButton::clicked, this, &MainWindow::loadProcessesFromFile);
+    connect(loadResourcesBtn, &QPushButton::clicked, this, &MainWindow::loadResourcesFromFile);
+    connect(loadActionsBtn, &QPushButton::clicked, this, &MainWindow::loadActionsFromFile);
     connect(manualInputBtn, &QPushButton::clicked, this, &MainWindow::showManualInputModal);
     connect(startSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSimulationScreen);
     connect(syncSimulationBtn, &QPushButton::clicked, this, &MainWindow::goToSyncSimulationScreen);
@@ -103,17 +119,65 @@ QWidget* MainWindow::createMainMenu() {
     layout->addWidget(multiAlgorithmGroup);
 
     layout->addWidget(new QLabel("Menú Principal"));
-    layout->addWidget(loadFromFileBtn);
-    layout->addWidget(manualInputBtn);
+    QHBoxLayout *fileButtonsLayout = new QHBoxLayout;
+    fileButtonsLayout->addWidget(loadFromFileBtn);
+    fileButtonsLayout->addWidget(loadResourcesBtn);
+    fileButtonsLayout->addWidget(loadActionsBtn);
+    fileButtonsLayout->addWidget(manualInputBtn);
+
+    layout->addLayout(fileButtonsLayout);
     layout->addWidget(startSimulationBtn);
     layout->addWidget(syncSimulationBtn);
+
     layout->addWidget(new QLabel("Procesos cargados:"));
     layout->addWidget(processTable);
     layout->addStretch();
+    layout->addWidget(new QLabel("Recursos cargados:"));
+    layout->addWidget(resourceTable);
+    layout->addWidget(new QLabel("Acciones cargadas:"));
+    layout->addWidget(actionTable);
 
     widget->setLayout(layout);
     return widget;
 }
+
+void MainWindow::loadResourcesFromFile() {
+    QString filename = QFileDialog::getOpenFileName(this, "Seleccionar archivo de recursos");
+    if (!filename.isEmpty()) {
+        auto resources = FileLoader::loadResources(filename.toStdString());
+        resourceTable->setRowCount(static_cast<int>(resources.size()));
+
+        for (size_t i = 0; i < resources.size(); ++i) {
+            resourceTable->setItem(static_cast<int>(i), 0, new QTableWidgetItem(QString::fromStdString(resources[i].name)));
+            resourceTable->setItem(static_cast<int>(i), 1, new QTableWidgetItem(QString::number(resources[i].count)));
+        }
+
+        loadedResources = std::move(resources);
+        QMessageBox::information(this, "Archivo cargado",
+                                 "Archivo: " + filename + "\nRecursos cargados: " + QString::number(loadedResources.size()));
+    }
+}
+
+
+void MainWindow::loadActionsFromFile() {
+    QString filename = QFileDialog::getOpenFileName(this, "Seleccionar archivo de acciones");
+    if (!filename.isEmpty()) {
+        auto actions = FileLoader::loadActions(filename.toStdString());
+        actionTable->setRowCount(static_cast<int>(actions.size()));
+
+        for (size_t i = 0; i < actions.size(); ++i) {
+            actionTable->setItem(static_cast<int>(i), 0, new QTableWidgetItem(QString::fromStdString(actions[i].pid)));
+            actionTable->setItem(static_cast<int>(i), 1, new QTableWidgetItem(QString::fromStdString(actions[i].type)));
+            actionTable->setItem(static_cast<int>(i), 2, new QTableWidgetItem(QString::fromStdString(actions[i].resource)));
+            actionTable->setItem(static_cast<int>(i), 3, new QTableWidgetItem(QString::number(actions[i].cycle)));
+        }
+
+        loadedActions = std::move(actions);
+        QMessageBox::information(this, "Archivo cargado",
+                                 "Archivo: " + filename + "\nAcciones cargadas: " + QString::number(loadedActions.size()));
+    }
+}
+
 
 QWidget* MainWindow::createSimulationScreen() {
     QWidget *widget = new QWidget;

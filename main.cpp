@@ -39,6 +39,20 @@ int main() {
                  << ", BT=" << p.burstTime
                  << ", PRIO=" << p.priority << "\n";
         }
+        auto procs = FileLoader::loadResources("data/resources.txt");
+        cout << "Cargados " << procs.size() << " procesos:\n";
+        for (const auto& p : procs) {
+            cout << "  NAME=" << p.name
+                 << ", COUNT=" << p.count << "\n";
+        }
+        auto procs = FileLoader::loadActions("data/actions.txt");
+        cout << "Cargados " << procs.size() << " procesos:\n";
+        for (const auto& p : procs) {
+            cout << "  PID=" << p.pid
+                 << ", type=" << p.type
+                 << ", resource=" << p.resource
+                 << ", ciycle=" << p.ciycle << "\n";
+        }
 
         // 2) Prueba de PetersonSynchronizer
         cout << "\n=== Probando PetersonSynchronizer ===\n";
