@@ -54,15 +54,21 @@ void SyncCanvas::paintEvent(QPaintEvent *) {
         QRect rect(marginLeft + col * colWidth, row * rowHeight + 20, colWidth - 2, rowHeight - 2);
 
         switch (s.state) {
-        case SyncStep::Waiting:
-            painter.fillRect(rect, Qt::yellow);
-            break;
-        case SyncStep::Critical:
-            painter.fillRect(rect, Qt::red);
-            break;
-        case SyncStep::Finished:
-            painter.fillRect(rect, Qt::green);
-            break;
+            case SyncStep::Waiting:
+                painter.fillRect(rect, Qt::yellow);
+                break;
+            case SyncStep::Critical:
+                painter.fillRect(rect, Qt::red);
+                break;
+            case SyncStep::Finished:
+                painter.fillRect(rect, Qt::green);
+                break;
+            case SyncStep::Acquire:
+                painter.fillRect(rect, QColor(100, 149, 237)); // azul claro
+                break;
+            case SyncStep::Release:
+                painter.fillRect(rect, QColor(128, 0, 128));   // púrpura
+                break;
         }
 
         painter.drawRect(rect);
@@ -73,6 +79,11 @@ void SyncCanvas::paintEvent(QPaintEvent *) {
         QString pidLabel = "PID: " + QString::fromStdString(processes[i].pid);
         painter.drawText(5, i * rowHeight + rowHeight / 2 + 10, pidLabel);
     }
+
+    if (!steps.empty()) {
+        setMinimumWidth(steps.back().tick * 20 + 200);
+    }
+
 }
 
 

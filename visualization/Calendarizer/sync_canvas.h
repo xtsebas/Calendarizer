@@ -7,7 +7,7 @@
 #include <QColor>
 
 struct SyncStep {
-    enum State { Waiting, Critical, Finished };
+    enum State { Waiting, Critical, Finished, Acquire, Release };
     int pid;
     int tick;
     State state;
