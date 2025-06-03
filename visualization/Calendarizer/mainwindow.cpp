@@ -294,11 +294,24 @@ QWidget* MainWindow::createSyncSimulationScreen() {
     syncLog->setMaximumHeight(150);
     layout->addWidget(syncLog);
 
+    // 1) Creamos el SyncCanvas y lo envolvemos en un QScrollArea
     syncCanvas = new SyncCanvas;
+    // Ajustamos el ancho mínimo según maxTicks (aquí 50). 
+    // Cada tick ocupa ~20px de ancho y le damos +200px de margen inicial.
+    const int maxTicks = 50;
+    syncCanvas->setMaxTicks(maxTicks);
+    syncCanvas->setMinimumWidth(maxTicks * 20 + 200);
+
+    QScrollArea *syncScrollArea = new QScrollArea;
+    syncScrollArea->setWidgetResizable(true);
+    syncScrollArea->setWidget(syncCanvas);
+
+    // 2) Agregamos el resto de controles y, en lugar de insertar syncCanvas directamente,
+    //    insertamos el scrollArea que lo contiene.
     layout->addWidget(label);
     layout->addWidget(syncAlgorithmSelector);
     layout->addWidget(startBtn);
-    layout->addWidget(syncCanvas);
+    layout->addWidget(syncScrollArea);  // aquí va el scrollArea
     layout->addWidget(syncStatusLabel);
     layout->addWidget(backBtn);
     layout->addStretch();
@@ -400,8 +413,9 @@ void MainWindow::startSyncSimulation() {
 
 struct ActionState {
     FileLoader::Action action;
-    int step = 0;  // 0=Waiting, 1=Acquire, 2=Critical, 3=Release, 4=Done
-    int index;     // index en canvas
+    int step = 0;           // 0=Waiting, 1=Acquire, 2=Critical, 3=Release, 4=Finished, 5=Done
+    int index;              // índice del proceso en el canvas
+    int criticalTicks = 0;  // cuántos ticks ya pasó en "Critical" (para forzar un ciclo completo)
 };
 
 void MainWindow::updateSyncSimulation() {
@@ -458,8 +472,16 @@ void MainWindow::updateSyncSimulation() {
                 break;
 
             case 2:
+                // Pintar "Critical" y permanecer un ciclo completo antes de avanzar
                 syncCanvas->addStep(state.index, syncTick, SyncStep::Critical, state.action.type);
-                state.step = 3;
+
+                if (state.criticalTicks == 0) {
+                    // Este es el primer tick de "Critical": incrementamos y nos quedamos en step=2
+                    state.criticalTicks = 1;
+                } else {
+                    // Ya cumplió un tick completo en "Critical": pasamos a Release
+                    state.step = 3;
+                }
                 allDone = false;
                 break;
 
