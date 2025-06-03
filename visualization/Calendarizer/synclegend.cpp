@@ -18,6 +18,8 @@ void SyncLegend::paintEvent(QPaintEvent *) {
         { Qt::green, "→ Done" },
         { QColor(100, 149, 237), "→ Acquire" },
         { QColor(128, 0, 128), "→ Release" },
+        { QColor(255, 100, 100), "→ Critical READ" },
+        { QColor(200, 0, 0), "→ Critical WRITE" },
 
     };
 

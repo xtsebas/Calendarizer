@@ -21,8 +21,8 @@ void SyncCanvas::setProcesses(const std::vector<Process> &procs) {
     processes = procs;
 }
 
-void SyncCanvas::addStep(int pid, int tick, SyncStep::State state) {
-    steps.push_back({pid, tick, state});
+void SyncCanvas::addStep(int pid, int tick, SyncStep::State state, const std::string& actionType) {
+    steps.push_back({pid, tick, state, actionType});
     update();
 }
 
@@ -57,9 +57,16 @@ void SyncCanvas::paintEvent(QPaintEvent *) {
             case SyncStep::Waiting:
                 painter.fillRect(rect, Qt::yellow);
                 break;
-            case SyncStep::Critical:
-                painter.fillRect(rect, Qt::red);
+            case SyncStep::Critical: {
+                QString type = QString::fromStdString(s.actionType).trimmed().toUpper();
+                if (type == "READ")
+                    painter.fillRect(rect, QColor(255, 100, 100));  // rojo claro
+                else if (type == "WRITE")
+                    painter.fillRect(rect, QColor(200, 0, 0));      // rojo oscuro
+                else
+                    painter.fillRect(rect, Qt::red);
                 break;
+            }
             case SyncStep::Finished:
                 painter.fillRect(rect, Qt::green);
                 break;

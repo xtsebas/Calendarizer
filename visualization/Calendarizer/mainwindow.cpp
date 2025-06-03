@@ -408,36 +408,36 @@ void MainWindow::updateSyncSimulation() {
 
         switch (state.step) {
             case 0:
-                syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting, state.action.type);
                 state.step = 1;
                 allDone = false;
                 break;
 
             case 1:
                 if (currentSync->try_lock(state.index)) {
-                    syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire);
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire, state.action.type);
                     state.step = 2;
                 } else {
-                    syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting);
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting, state.action.type);
                 }
                 allDone = false;
                 break;
 
             case 2:
-                syncCanvas->addStep(state.index, syncTick, SyncStep::Critical);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Critical, state.action.type);
                 state.step = 3;
                 allDone = false;
                 break;
 
             case 3:
                 currentSync->unlock(state.index);
-                syncCanvas->addStep(state.index, syncTick, SyncStep::Release);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Release, state.action.type);
                 state.step = 4;
                 allDone = false;
                 break;
 
             case 4:
-                syncCanvas->addStep(state.index, syncTick, SyncStep::Finished);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Finished, state.action.type);
                 state.step = 5;
                 break;
 

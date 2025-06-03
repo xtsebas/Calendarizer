@@ -12,6 +12,7 @@ struct SyncStep {
     int pid;
     int tick;
     State state;
+    std::string actionType;  // "READ" o "WRITE"
 };
 
 class SyncCanvas : public QWidget {
@@ -19,7 +20,7 @@ class SyncCanvas : public QWidget {
 
 public:
     SyncCanvas(QWidget *parent = nullptr);
-    void addStep(int pid, int tick, SyncStep::State state);
+    void addStep(int pid, int tick, SyncStep::State state, const std::string& actionType = "");
     void setMaxTicks(int ticks);
     void reset();
     void setProcesses(const std::vector<Process> &procs);
