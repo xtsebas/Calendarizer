@@ -16,8 +16,8 @@ void SyncLegend::paintEvent(QPaintEvent *) {
         { Qt::red, "→ Critical section" },
         { Qt::yellow, "→ Waiting" },
         { Qt::green, "→ Done" },
-        { QColor(100, 149, 237), "→ Acquire (acceso concedido)" },
-        { QColor(128, 0, 128), "→ Release (liberación del recurso)" },
+        { QColor(100, 149, 237), "→ Acquire" },
+        { QColor(128, 0, 128), "→ Release" },
 
     };
 

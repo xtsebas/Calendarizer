@@ -249,7 +249,7 @@ QWidget* MainWindow::createSyncSimulationScreen() {
 
     QLabel *label = new QLabel("Simulación de sincronización");
     syncAlgorithmSelector = new QComboBox;
-    syncAlgorithmSelector->addItems({"Peterson", "Mutex", "Semáforo"});
+    syncAlgorithmSelector->addItems({"Mutex", "Semáforo"});
 
     QPushButton *startBtn = new QPushButton("Iniciar simulación");
     QPushButton *backBtn = new QPushButton("Volver al menú");
@@ -398,49 +398,62 @@ void MainWindow::updateSyncSimulation() {
 
     qDebug() << "[TICK]" << syncTick;
 
-    bool foundOne = false;
+    bool allDone = true;
 
-    for (auto it = activeActions.begin(); it != activeActions.end(); ++it) {
-        auto& state = *it;
-
-        if (state.action.cycle > syncTick) continue;
-
-        try {
-            switch (state.step) {
-                case 0:
-                    syncCanvas->addStep(state.index, SyncStep::Waiting);
-                    state.step = 1;
-                    break;
-                case 1:
-                    currentSync->lock(state.index);
-                    syncCanvas->addStep(state.index, SyncStep::Acquire);
-                    state.step = 2;
-                    break;
-                case 2:
-                    syncCanvas->addStep(state.index, SyncStep::Critical);
-                    state.step = 3;
-                    break;
-                case 3:
-                    currentSync->unlock(state.index);
-                    syncCanvas->addStep(state.index, SyncStep::Release);
-                    state.step = 4;
-                    break;
-                case 4:
-                    syncCanvas->addStep(state.index, SyncStep::Finished);
-                    activeActions.erase(it);
-                    break;
-            }
-        } catch (const std::exception& e) {
-            logSyncMessage(QString("Error en sincronización: %1").arg(e.what()));
+    for (auto& state : activeActions) {
+        if (syncTick < state.action.cycle) {
+            allDone = false;
+            continue;
         }
 
-        foundOne = true;
-        break;  // Solo un paso por tick
+        switch (state.step) {
+            case 0:
+                syncCanvas->addStep(state.index, SyncStep::Waiting);
+                state.step = 1;
+                allDone = false;
+                break;
+
+            case 1:
+                if (currentSync->try_lock(state.index)) {
+                    syncCanvas->addStep(state.index, SyncStep::Acquire);
+                    state.step = 2;
+                } else {
+                    syncCanvas->addStep(state.index, SyncStep::Waiting);
+                }
+                allDone = false;
+                break;
+
+            case 2:
+                syncCanvas->addStep(state.index, SyncStep::Critical);
+                state.step = 3;
+                allDone = false;
+                break;
+
+            case 3:
+                currentSync->unlock(state.index);
+                syncCanvas->addStep(state.index, SyncStep::Release);
+                state.step = 4;
+                allDone = false;
+                break;
+
+            case 4:
+                syncCanvas->addStep(state.index, SyncStep::Finished);
+                state.step = 5;
+                break;
+
+            case 5:
+                // Ya terminado
+                break;
+        }
+
+        if (state.step != 5) {
+            allDone = false;
+        }
     }
 
     syncTick++;
 
-    if (!foundOne && activeActions.empty()) {
+    if (allDone) {
         for (size_t i = 0; i < syncProcesses.size(); ++i)
             syncCanvas->addStep(static_cast<int>(i), SyncStep::Finished);
         logSyncMessage("SIMULACIÓN TERMINADA");
@@ -448,9 +461,6 @@ void MainWindow::updateSyncSimulation() {
         syncStatusLabel->setText("Simulación finalizada.");
     }
 }
-
-
-
 
 
 void MainWindow::showModal(QWidget *content, const QString &title) {

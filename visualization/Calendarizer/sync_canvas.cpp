@@ -9,6 +9,7 @@ SyncCanvas::SyncCanvas(QWidget *parent) : QWidget(parent) {
 
 void SyncCanvas::reset() {
     steps.clear();
+    tickPerPid.clear(); // <- resetear ticks por PID
     update();
 }
 
@@ -21,7 +22,7 @@ void SyncCanvas::setProcesses(const std::vector<Process> &procs) {
 }
 
 void SyncCanvas::addStep(int pid, SyncStep::State state) {
-    int tick = steps.size() / processes.size();
+    int tick = tickPerPid[pid]++;
     steps.push_back({pid, tick, state});
     update();
 }

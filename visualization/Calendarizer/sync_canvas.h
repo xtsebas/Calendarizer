@@ -5,6 +5,7 @@
 #include <vector>
 #include <QString>
 #include <QColor>
+#include <unordered_map>
 
 struct SyncStep {
     enum State { Waiting, Critical, Finished, Acquire, Release };
@@ -30,6 +31,7 @@ private:
     std::vector<Process> processes;
     std::vector<SyncStep> steps;
     int maxTicks = 100;
+    std::unordered_map<int, int> tickPerPid;
 };
 
 #endif // SYNC_CANVAS_H
