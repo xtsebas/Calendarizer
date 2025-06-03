@@ -13,6 +13,7 @@
 #include <QLabel>
 #include <QTimer>
 
+
 #include "process.h"
 #include "../scheduler/scheduler.h"
 #include "../scheduler/FIFO/fifo_scheduler.h"
@@ -78,6 +79,7 @@ private:
     QWidget                      *ganttContainer       = nullptr;
     QVBoxLayout                  *ganttContainerLayout = nullptr;
     QTableWidget                 *processesTable       = nullptr;
+    QTableWidget                 *metricsTable         = nullptr;
     QPlainTextEdit               *metricsOutput        = nullptr;
 
     QTimer                       *simulationTimer      = nullptr;
