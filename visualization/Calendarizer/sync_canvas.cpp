@@ -21,8 +21,7 @@ void SyncCanvas::setProcesses(const std::vector<Process> &procs) {
     processes = procs;
 }
 
-void SyncCanvas::addStep(int pid, SyncStep::State state) {
-    int tick = tickPerPid[pid]++;
+void SyncCanvas::addStep(int pid, int tick, SyncStep::State state) {
     steps.push_back({pid, tick, state});
     update();
 }

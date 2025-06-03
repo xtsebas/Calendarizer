@@ -408,36 +408,36 @@ void MainWindow::updateSyncSimulation() {
 
         switch (state.step) {
             case 0:
-                syncCanvas->addStep(state.index, SyncStep::Waiting);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting);
                 state.step = 1;
                 allDone = false;
                 break;
 
             case 1:
                 if (currentSync->try_lock(state.index)) {
-                    syncCanvas->addStep(state.index, SyncStep::Acquire);
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire);
                     state.step = 2;
                 } else {
-                    syncCanvas->addStep(state.index, SyncStep::Waiting);
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting);
                 }
                 allDone = false;
                 break;
 
             case 2:
-                syncCanvas->addStep(state.index, SyncStep::Critical);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Critical);
                 state.step = 3;
                 allDone = false;
                 break;
 
             case 3:
                 currentSync->unlock(state.index);
-                syncCanvas->addStep(state.index, SyncStep::Release);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Release);
                 state.step = 4;
                 allDone = false;
                 break;
 
             case 4:
-                syncCanvas->addStep(state.index, SyncStep::Finished);
+                syncCanvas->addStep(state.index, syncTick, SyncStep::Finished);
                 state.step = 5;
                 break;
 
@@ -455,7 +455,7 @@ void MainWindow::updateSyncSimulation() {
 
     if (allDone) {
         for (size_t i = 0; i < syncProcesses.size(); ++i)
-            syncCanvas->addStep(static_cast<int>(i), SyncStep::Finished);
+            syncCanvas->addStep(static_cast<int>(i), syncTick, SyncStep::Finished);
         logSyncMessage("SIMULACIÓN TERMINADA");
         syncTimer->stop();
         syncStatusLabel->setText("Simulación finalizada.");

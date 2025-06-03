@@ -19,7 +19,7 @@ class SyncCanvas : public QWidget {
 
 public:
     SyncCanvas(QWidget *parent = nullptr);
-    void addStep(int pid, SyncStep::State state);
+    void addStep(int pid, int tick, SyncStep::State state);
     void setMaxTicks(int ticks);
     void reset();
     void setProcesses(const std::vector<Process> &procs);
