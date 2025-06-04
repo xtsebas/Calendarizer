@@ -20,6 +20,7 @@ private:
         Process proc;
         int remainingTime;
         bool finished;
+        int start_time = -1;
     };
 
     std::vector<Job> jobs;                         // Lista interna de trabajos

@@ -688,7 +688,13 @@ void MainWindow::goToSimulationScreen() {
 
             //  e.2) Agregar los mismos procesos
             for (const Process &p : loadedProcesses) {
-                sched->add_process(p);
+                if (chosenAlg == "Priority") {
+                    Process pCopy = p;
+                    pCopy.arrivalTime = 0;
+                    sched->add_process(pCopy);
+                } else {
+                    sched->add_process(p);
+                }
             }
 
             //  e.3) Simular “rápido” sin dibujar, para obtener finishLog
@@ -713,7 +719,12 @@ void MainWindow::goToSimulationScreen() {
             }
 
             //  e.4) Calcular métricas
-            double avgWT = averageWaitingTime(finishLog, loadedProcesses);
+            double avgWT;
+            if (chosenAlg == "Priority") {
+                avgWT = sched->average_waiting_time();
+            } else {
+                avgWT = averageWaitingTime(finishLog, loadedProcesses);
+            }
             double avgTT = averageTurnaroundTime(finishLog, loadedProcesses);
             int totalTicks = t > 0 ? t : 1;
             int totalProcs = static_cast<int>(finishLog.size());
@@ -781,7 +792,13 @@ void MainWindow::goToSimulationScreen() {
 
     // 2.b) Agregar procesos al scheduler
     for (const Process &p : loadedProcesses) {
-        sched->add_process(p);
+        if (chosenAlgStd == "Priority") {
+            Process pCopy = p;
+            pCopy.arrivalTime = 0;
+            sched->add_process(pCopy);
+        } else {
+            sched->add_process(p);
+        }
     }
 
     // 2.c) Preparar lista de PIDs y asignar al GanttCanvas
@@ -839,7 +856,12 @@ void MainWindow::updateAllSchedulers() {
             continue;
 
         // 1.1) Ejecutar schedule_next en este tick
-        std::string pid = item.sched->schedule_next(simulationTick);
+        std::string pid;
+        if (item.name.startsWith("Priority")) {
+            pid = item.sched->schedule_next(simulationTick); 
+        } else {
+            pid = item.sched->schedule_next(simulationTick);
+        }
 
         if (!pid.empty()) {
             // 1.2) Pintar el paso en el canvas correspondiente
@@ -876,7 +898,12 @@ void MainWindow::updateAllSchedulers() {
             item.finished = true;
 
             // Calcular Avg WT y Avg TT
-            double avgWT = averageWaitingTime(item.finishLog, loadedProcesses);
+            double avgWT;
+            if (item.name.startsWith("Priority")) {
+                avgWT = item.sched->average_waiting_time();
+            } else {
+                avgWT = averageWaitingTime(item.finishLog, loadedProcesses);
+            }
             double avgTT = averageTurnaroundTime(item.finishLog, loadedProcesses);
 
             // (Opcional) Calcular throughput
