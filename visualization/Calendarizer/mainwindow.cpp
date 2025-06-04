@@ -33,9 +33,9 @@
 // — Sincronización —
 #include "../synchronizer/synchronizer_peterson.h"
 #include "../synchronizer/mutex_sync.h"
+#include "../synchronizer/semaphore_sync.h"
 #include "../visualization/Calendarizer/sync_canvas.h"
 #include "../visualization/Calendarizer/synclegend.h"
-#include "../synchronizer/semaphore_sync.h"
 
 std::function<void(QString)> syncLogger = nullptr;
 
@@ -473,7 +473,12 @@ void MainWindow::updateSyncSimulation() {
 
             case 1:
                 if (currentSync->try_lock(state.index)) {
-                    syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire, state.action.type);
+                    // Si es semáforo, usamos Wait; si no, usamos Acquire
+                    if (dynamic_cast<SemaphoreSynchronizer*>(currentSync)) {
+                        syncCanvas->addStep(state.index, syncTick, SyncStep::Wait, state.action.type);
+                    } else {
+                        syncCanvas->addStep(state.index, syncTick, SyncStep::Acquire, state.action.type);
+                    }
                     state.step = 2;
                 } else {
                     syncCanvas->addStep(state.index, syncTick, SyncStep::Waiting, state.action.type);
@@ -497,7 +502,12 @@ void MainWindow::updateSyncSimulation() {
 
             case 3:
                 currentSync->unlock(state.index);
-                syncCanvas->addStep(state.index, syncTick, SyncStep::Release, state.action.type);
+                // Si es semáforo, usamos Signal; si no, usamos Release
+                if (dynamic_cast<SemaphoreSynchronizer*>(currentSync)) {
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Signal, state.action.type);
+                } else {
+                    syncCanvas->addStep(state.index, syncTick, SyncStep::Release, state.action.type);
+                }
                 state.step = 4;
                 allDone = false;
                 break;

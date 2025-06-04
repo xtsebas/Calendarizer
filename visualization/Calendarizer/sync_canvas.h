@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 struct SyncStep {
-    enum State { Waiting, Critical, Finished, Acquire, Release };
+    enum State { Waiting, Critical, Finished, Acquire, Release, Wait, Signal };
     int pid;
     int tick;
     State state;

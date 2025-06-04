@@ -70,11 +70,19 @@ void SyncCanvas::paintEvent(QPaintEvent *) {
             case SyncStep::Finished:
                 painter.fillRect(rect, Qt::green);
                 break;
+            // Para mutex/Peterson:
             case SyncStep::Acquire:
                 painter.fillRect(rect, QColor(100, 149, 237)); // azul claro
                 break;
             case SyncStep::Release:
                 painter.fillRect(rect, QColor(128, 0, 128));   // púrpura
+                break;
+            // Para semáforo:
+            case SyncStep::Wait:
+                painter.fillRect(rect, QColor(100, 149, 237)); // azul claro (igual que Acquire)
+                break;
+            case SyncStep::Signal:
+                painter.fillRect(rect, QColor(128, 0, 128));   // púrpura (igual que Release)
                 break;
         }
 

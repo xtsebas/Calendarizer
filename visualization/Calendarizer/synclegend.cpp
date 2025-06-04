@@ -16,8 +16,10 @@ void SyncLegend::paintEvent(QPaintEvent *) {
         { Qt::red, "→ Critical section" },
         { Qt::yellow, "→ Waiting" },
         { Qt::green, "→ Done" },
-        { QColor(100, 149, 237), "→ Acquire" },
-        { QColor(128, 0, 128), "→ Release" },
+        { QColor(100, 149, 237), "→ Wait (P)" },
+        { QColor(128, 0, 128), "→ Signal (V)" },
+        { QColor(100, 149, 237), "→ Acquire (Mutex/Peterson)" },
+        { QColor(128, 0, 128), "→ Release (Mutex/Peterson)" },
         { QColor(255, 100, 100), "→ Critical READ" },
         { QColor(200, 0, 0), "→ Critical WRITE" },
 
