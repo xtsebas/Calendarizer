@@ -288,15 +288,22 @@ QWidget* MainWindow::createSyncSimulationScreen() {
     QPushButton *backBtn = new QPushButton("Volver al menú");
     syncStatusLabel = new QLabel("Estado de la simulación");
 
+    // Área de log (arriba):
     syncLog = new QPlainTextEdit;
     syncLog->setReadOnly(true);
     syncLog->setMaximumHeight(150);
     layout->addWidget(syncLog);
 
-    // 1) Creamos el SyncCanvas y lo envolvemos en un QScrollArea
+    // ─── SyncCanvas dentro de QScrollArea ───
     syncCanvas = new SyncCanvas;
-    // Ajustamos el ancho mínimo según maxTicks (aquí 50).
-    // Cada tick ocupa ~20px de ancho y le damos +200px de margen inicial.
+
+    // 1) Elevamos la altura mínima (por defecto era 300)
+    syncCanvas->setMinimumHeight(300);
+
+    // 2) Permitimos que crezca si hay espacio extra
+    syncCanvas->setSizePolicy(QSizePolicy::Expanding,
+                              QSizePolicy::Expanding);
+
     const int maxTicks = 50;
     syncCanvas->setMaxTicks(maxTicks);
     syncCanvas->setMinimumWidth(maxTicks * 20 + 200);
@@ -304,36 +311,40 @@ QWidget* MainWindow::createSyncSimulationScreen() {
     QScrollArea *syncScrollArea = new QScrollArea;
     syncScrollArea->setWidgetResizable(true);
     syncScrollArea->setWidget(syncCanvas);
+    syncScrollArea->setMinimumHeight(500);
 
-    // 2) Agregamos el resto de controles y, en lugar de insertar syncCanvas directamente,
-    //    insertamos el scrollArea que lo contiene.
     layout->addWidget(label);
     layout->addWidget(syncAlgorithmSelector);
     layout->addWidget(startBtn);
-    layout->addWidget(syncScrollArea);  // aquí va el scrollArea
+    layout->addWidget(syncScrollArea);   // ← aquí se ve el área coloreada más alta
     layout->addWidget(syncStatusLabel);
     layout->addWidget(backBtn);
-    layout->addStretch();
+    // ────────────────────────────────────────
 
-    connect(startBtn, &QPushButton::clicked, this, &MainWindow::startSyncSimulation);
-    connect(backBtn, &QPushButton::clicked, this, &MainWindow::goToMainMenu);
+    connect(startBtn, &QPushButton::clicked,
+            this, &MainWindow::startSyncSimulation);
+    connect(backBtn, &QPushButton::clicked,
+            this, &MainWindow::goToMainMenu);
 
-    // Tabla de procesos
+    // Tabla de acciones y leyenda (debajo)
     syncProcessTable = new QTableWidget;
     syncProcessTable->setColumnCount(4);
-    QStringList headers = {"PID", "Accion", "Recurso", "Ciclo"};
+    QStringList headers = {"PID", "Acción", "Recurso", "Ciclo"};
     syncProcessTable->setHorizontalHeaderLabels(headers);
     syncProcessTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     syncProcessTable->horizontalHeader()->setStretchLastSection(true);
+    syncProcessTable->setSizePolicy(QSizePolicy::Expanding,
+                                    QSizePolicy::Expanding);
     layout->addWidget(syncProcessTable);
 
-    // Leyenda visual
     syncLegend = new SyncLegend;
     layout->addWidget(syncLegend);
 
+    layout->addStretch();
     widget->setLayout(layout);
     return widget;
 }
+
 
 
 void MainWindow::startSyncSimulation() {
