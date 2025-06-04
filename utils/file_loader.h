@@ -25,6 +25,12 @@ namespace FileLoader {
       : pid(pid), type(type), resource(resource), cycle(cycle) {}
   };
 
+  /**
+   * Carga procesos desde un archivo
+   * Formato esperado: <PID>,<BT>,<AT>,<Priority>
+   * @param filepath Ruta al archivo
+   * @return Vector de procesos cargados
+   */
   std::vector<Process> loadProcesses(const std::string& filepath);
   std::vector<Resource> loadResources(const std::string& filepath);
   std::vector<Action> loadActions(const std::string& filepath);

@@ -248,8 +248,7 @@ QWidget* MainWindow::createSimulationScreen() {
     metricsTable->setColumnCount(4);
     QStringList metHeaders = { "Algoritmo", "Avg WT", "Avg TT", "Throughput" };
     metricsTable->setHorizontalHeaderLabels(metHeaders);
-    metricsTable->horizontalHeader()->setStretchLastSection(true);
-    metricsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    metricsTable->horizontalHeader()->setStretchLastSection(true); metricsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     // Inicialmente, la ocultamos
     metricsTable->setVisible(false);
 
@@ -265,7 +264,7 @@ QWidget* MainWindow::createSimulationScreen() {
     mainLayout->addWidget(processesTable);
     mainLayout->addWidget(new QLabel("Métricas:"));
     mainLayout->addWidget(metricsOutput);
-    mainLayout->addWidget(metricsTable);   // <-- insertamos la tabla justo debajo del QPlainTextEdit
+    mainLayout->addWidget(metricsTable);
     mainLayout->addWidget(backBtn);
     mainLayout->addStretch();
 
@@ -296,7 +295,7 @@ QWidget* MainWindow::createSyncSimulationScreen() {
 
     // 1) Creamos el SyncCanvas y lo envolvemos en un QScrollArea
     syncCanvas = new SyncCanvas;
-    // Ajustamos el ancho mínimo según maxTicks (aquí 50). 
+    // Ajustamos el ancho mínimo según maxTicks (aquí 50).
     // Cada tick ocupa ~20px de ancho y le damos +200px de margen inicial.
     const int maxTicks = 50;
     syncCanvas->setMaxTicks(maxTicks);
