@@ -31,30 +31,34 @@ void task(int id) {
 int main() {
     try {
         // 1) Carga de procesos
-        auto procs = FileLoader::loadProcesses("data/processes_valid.txt");
-        cout << "Cargados " << procs.size() << " procesos:\n";
-        for (const auto& p : procs) {
+        auto procesos = FileLoader::loadProcesses("data/processes_valid.txt");
+        cout << "Cargados " << procesos.size() << " procesos:\n";
+        for (const auto& p : procesos) {
             cout << "  PID=" << p.pid
                  << ", AT=" << p.arrivalTime
                  << ", BT=" << p.burstTime
                  << ", PRIO=" << p.priority << "\n";
         }
-        auto procs = FileLoader::loadResources("data/resources.txt");
-        cout << "Cargados " << procs.size() << " procesos:\n";
-        for (const auto& p : procs) {
-            cout << "  NAME=" << p.name
-                 << ", COUNT=" << p.count << "\n";
-        }
-        auto procs = FileLoader::loadActions("data/actions.txt");
-        cout << "Cargados " << procs.size() << " procesos:\n";
-        for (const auto& p : procs) {
-            cout << "  PID=" << p.pid
-                 << ", type=" << p.type
-                 << ", resource=" << p.resource
-                 << ", ciycle=" << p.ciycle << "\n";
+
+        // 2) Carga de recursos
+        auto recursos = FileLoader::loadResources("data/resources.txt");
+        cout << "Cargados " << recursos.size() << " recursos:\n";
+        for (const auto& r : recursos) {
+            cout << "  NAME=" << r.name
+                 << ", COUNT=" << r.count << "\n";
         }
 
-        // 2) Prueba de PetersonSynchronizer
+        // 3) Carga de acciones
+        auto acciones = FileLoader::loadActions("data/actions.txt");
+        cout << "Cargados " << acciones.size() << " acciones:\n";
+        for (const auto& a : acciones) {
+            cout << "  PID=" << a.pid
+                 << ", type=" << a.type
+                 << ", resource=" << a.resource
+                 << ", cycle=" << a.cycle << "\n";
+        }
+
+        // 4) Prueba de PetersonSynchronizer
         cout << "\n=== Probando PetersonSynchronizer ===\n";
         counter = 0;
         thread t1(task, 0), t2(task, 1);
@@ -62,7 +66,7 @@ int main() {
         t2.join();
         cout << "Contador final (esperado = 20000): " << counter << "\n";
 
-        // 2.1) Prueba de MutexSynchronizer
+        // 5) Prueba de MutexSynchronizer
         cout << "\n=== Probando MutexSynchronizer ===\n";
         counter = 0;
         MutexSynchronizer mtx_sync;
@@ -80,15 +84,15 @@ int main() {
         m2.join();
         cout << "Contador final (esperado = 20000): " << counter << "\n";
 
-        // 3) DummyScheduler
+        // 6) DummyScheduler
         DummyScheduler dummy;
-        for (const auto& p : procs) dummy.add_process(p);
+        for (const auto& p : procesos) dummy.add_process(p);
         cout << "\n=== Probando " << dummy.get_name() << " ===\n";
         cout << "schedule_next(0): " << dummy.schedule_next(0) << "\n";
 
-        // 4) SJF Scheduler
+        // 7) SJF Scheduler
         SJF_Scheduler sjf;
-        for (const auto& p : procs) sjf.add_process(p);
+        for (const auto& p : procesos) sjf.add_process(p);
 
         vector<pair<string,int>> finishSJF;
         cout << "\n=== Probando " << sjf.get_name() << " ===\n";
@@ -97,7 +101,7 @@ int main() {
             auto pid = sjf.schedule_next(time);
             if (!pid.empty()) {
                 cout << "t=" << time << " -> " << pid << "\n";
-                // si acabó, registrar finish time
+                // Si acabó, registrar finish time
                 auto pending = sjf.get_pending_processes();
                 if (none_of(pending.begin(), pending.end(),
                             [&](auto& pr){ return pr.pid == pid; }))
@@ -108,15 +112,15 @@ int main() {
             if (sjf.get_pending_processes().empty()) break;
             ++time;
         }
-        cout << "Avg WT (SJF): " 
-             << averageWaitingTime(finishSJF, procs) << "\n";
+        cout << "Avg WT (SJF): "
+             << averageWaitingTime(finishSJF, procesos) << "\n";
 
-        // 5) Round Robin Scheduler (quantum = 3)
+        // 8) Round Robin Scheduler (quantum = 3)
         RR_Scheduler rr(3);
-        for (const auto& p : procs) rr.add_process(p);
+        for (const auto& p : procesos) rr.add_process(p);
 
         vector<pair<string,int>> finishRR;
-        cout << "\n=== Probando " << rr.get_name() 
+        cout << "\n=== Probando " << rr.get_name()
              << " (quantum=3) ===\n";
         time = 0;
         while (true) {
@@ -133,12 +137,12 @@ int main() {
             if (rr.get_pending_processes().empty()) break;
             ++time;
         }
-        cout << "Avg WT (RR):  " 
-             << averageWaitingTime(finishRR, procs) << "\n";
+        cout << "Avg WT (RR):  "
+             << averageWaitingTime(finishRR, procesos) << "\n";
 
-        // 6) Priority Scheduler
+        // 9) Priority Scheduler
         PriorityScheduler prio;
-        for (const auto& p : procs) prio.add_process(p);
+        for (const auto& p : procesos) prio.add_process(p);
 
         vector<pair<string,int>> finishPR;
         cout << "\n=== Probando " << prio.get_name() << " ===\n";
@@ -157,12 +161,13 @@ int main() {
             if (prio.get_pending_processes().empty()) break;
             ++time;
         }
-        cout << "Avg WT (Priority): " 
-             << prio.average_waiting_time() << "\n";
+        // Usamos el cálculo externo de metrics.py para WT real:
+        cout << "Avg WT (Priority): "
+             << averageWaitingTime(finishPR, procesos) << "\n";
 
-        // 7) FIFO Scheduler
+        // 10) FIFO Scheduler
         FIFO_Scheduler fifo;
-        for (const auto& p : procs) fifo.add_process(p);
+        for (const auto& p : procesos) fifo.add_process(p);
 
         vector<pair<string,int>> finishFIFO;
         cout << "\n=== Probando " << fifo.get_name() << " ===\n";
@@ -182,7 +187,7 @@ int main() {
             ++time;
         }
         cout << "Avg WT (FIFO): "
-            << averageWaitingTime(finishFIFO, procs) << "\n";
+             << averageWaitingTime(finishFIFO, procesos) << "\n";
 
     } catch (const exception& ex) {
         cerr << "Error: " << ex.what() << "\n";

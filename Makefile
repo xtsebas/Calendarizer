@@ -1,7 +1,16 @@
 CXX       := g++
 CXXFLAGS  := -g -std=c++17 -I.
 
-SRCS      := $(wildcard process/*.cpp utils/*.cpp scheduler/scheduler.cpp scheduler/SJF/*.cpp scheduler/RoundRobin/*.cpp main.cpp)
+SRCS := \
+  $(wildcard process/*.cpp) \
+  $(wildcard utils/*.cpp) \
+  scheduler/scheduler.cpp \
+  $(wildcard scheduler/SJF/*.cpp) \
+  $(wildcard scheduler/RoundRobin/*.cpp) \
+  $(wildcard scheduler/FIFO/*.cpp) \
+  $(wildcard scheduler/SRTF/*.cpp) \
+  $(wildcard scheduler/Priority/*.cpp) \
+  main.cpp
 OBJS      := $(SRCS:.cpp=.o)
 TARGET    := calendarizer
 
