@@ -3,7 +3,7 @@
 
 #include "../scheduler.h"
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 class PriorityScheduler : public Scheduler {
 public:
@@ -17,7 +17,7 @@ public:
 
 private:
     std::vector<Process> sorted_processes;
-    std::map<std::string, int> waiting_times;
+    std::unordered_map<std::string, int> waiting_times;
 
     int current_time;
     int current_index;
@@ -26,4 +26,4 @@ private:
     Process current_process;
 };
 
-#endif
+#endif // PRIORITY_SCHEDULER_H
